@@ -1,11 +1,11 @@
 <template>
   <v-app id="inspire">
-    <v-navigation-drawer
+    <!-- <v-navigation-drawer
       v-model="drawer"
       :clipped="$vuetify.breakpoint.lgAndUp"
       app
     >
-      <v-list dense>
+      <v-list>
         <template v-for="item in items">
           <v-row v-if="item.heading" :key="item.heading" align="center">
             <v-col cols="6">
@@ -63,7 +63,7 @@
           </v-list-item>
         </template>
       </v-list>
-    </v-navigation-drawer>
+    </v-navigation-drawer> -->
 
     <v-app-bar
       :clipped-left="$vuetify.breakpoint.lgAndUp"
@@ -71,9 +71,9 @@
       color="blue darken-3"
       dark
     >
-      <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
+      <!-- <v-app-bar-nav-icon @click.stop="drawer = !drawer" /> -->
       <v-toolbar-title style="width: 300px" class="ml-0 pl-4">
-        <span class="hidden-sm-and-down">FruitNanny</span>
+        FruitNanny
       </v-toolbar-title>
       <!-- <v-text-field
         flat
@@ -96,7 +96,7 @@
         fab
         small
         color="pink"
-        dark="false"
+        :dark="false"
         @click="$vuetify.theme.dark = !$vuetify.theme.dark"
       >
         <v-icon>mdi-moon-waxing-crescent</v-icon>
