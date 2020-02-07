@@ -7,7 +7,17 @@ Vue.use(VueRouter);
 
 export default new VueRouter({
   routes: [
-    { path: "/", component: Camera, name: "camera" },
-    { path: "/settings", component: Settings, name: "settings" }
+    {
+      path: "/",
+      component: Camera,
+      name: "camera",
+      meta: { title: "Camera" }
+    },
+    {
+      path: "/network",
+      component: Settings,
+      name: "network",
+      meta: { title: "Network" }
+    }
   ]
 });
