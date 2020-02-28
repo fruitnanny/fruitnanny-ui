@@ -82,9 +82,9 @@
       <router-view></router-view>
     </v-content>
 
-    <v-snackbar v-model="poweroffNotification">
-      Powering off …
-      <v-btn color="primary" text @click="poweroffNotification = false">
+    <v-snackbar v-model="$notify.show" :color="$notify.color">
+      {{ $notify.text }}
+      <v-btn dark text @click="$notify.show = false">
         Close
       </v-btn>
     </v-snackbar>
@@ -94,12 +94,12 @@
         <v-container class="fill-height">
           <v-row justify="center">
             <v-col class="flex-grow-0">
-              <v-btn fab @click="poweroff">
+              <v-btn fab color="accent" @click="poweroff">
                 <v-icon>mdi-power</v-icon>
               </v-btn>
             </v-col>
             <v-col class="flex-grow-0">
-              <v-btn fab @click="restart">
+              <v-btn fab color="accent" @click="restart">
                 <v-icon>mdi-restart</v-icon>
               </v-btn>
             </v-col>
@@ -139,6 +139,7 @@
 import Vue from "vue";
 import Component from "vue-class-component";
 import { probeHealthStatus } from "./probe";
+import { reboot, poweroff } from "./api";
 
 @Component({
   props: {
@@ -149,7 +150,6 @@ export default class App extends Vue {
   dialog = false;
   drawer = null;
   powerSheet = false;
-  poweroffNotification = false;
   restartSheet = false;
 
   get navColor() {
@@ -175,6 +175,9 @@ export default class App extends Vue {
     this.powerSheet = false;
     this.restartSheet = true;
 
+    await reboot();
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
     let response = null;
     while (!response) {
       try {
@@ -190,7 +193,10 @@ export default class App extends Vue {
   poweroff() {
     this.hideDrawerOnMobile();
     this.powerSheet = false;
-    this.poweroffNotification = true;
+    this.$notify.send({
+      text: "Powering off …"
+    });
+    poweroff();
   }
 }
 </script>

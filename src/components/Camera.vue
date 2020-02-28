@@ -1,9 +1,36 @@
 <template>
   <v-container>
     <!-- <v-system-bar></v-system-bar> -->
-    <v-row justify="center">
+    <v-row class="text-center" justify="center" align="center">
+      <v-col lg="3" v-if="!sensorOverlay && $vuetify.breakpoint.lgAndUp">
+        <v-icon large left>mdi-thermometer</v-icon>
+        <v-progress-circular
+          :rotate="-90"
+          :size="80"
+          :width="10"
+          :value="(temperature / (2 * 17)) * 100"
+          color="blue"
+          :elevation="1"
+        >
+          {{ temperature }} °C
+        </v-progress-circular>
+      </v-col>
+
       <v-col xs="12" md="8" lg="6">
         <v-responsive :aspect-ratio="4 / 3">
+          <div class="temperature-meter overlay" v-if="sensorOverlay">
+            <v-icon color="white" large left>mdi-thermometer</v-icon>
+            <v-progress-circular
+              :rotate="-90"
+              :size="70"
+              :width="8"
+              :value="(temperature / (2 * 17)) * 100"
+              color="white"
+            >
+              {{ temperature }} °C
+            </v-progress-circular>
+          </div>
+
           <video
             class="remote-video"
             ref="video"
@@ -13,17 +40,95 @@
             :controls="nativeControls"
             v-on:volumechange="syncVolume"
           ></video>
+
+          <div class="humidity-meter overlay" v-if="sensorOverlay">
+            <v-progress-circular
+              :rotate="-90"
+              :size="70"
+              :width="8"
+              :value="humidity"
+              color="white"
+            >
+              {{ humidity }} %
+            </v-progress-circular>
+            <v-icon color="white" large right>mdi-water-percent</v-icon>
+          </div>
+
+          <canvas
+            v-if="sensorOverlay"
+            class="volume-meter overlay"
+            height="50"
+            ref="canvas"
+          ></canvas>
         </v-responsive>
+      </v-col>
+
+      <v-col lg="3" v-if="!sensorOverlay && $vuetify.breakpoint.lgAndUp">
+        <v-progress-circular
+          :rotate="-90"
+          :size="80"
+          :width="10"
+          :value="humidity"
+          color="blue"
+        >
+          {{ humidity }} %
+        </v-progress-circular>
+        <v-icon large right>mdi-water-percent</v-icon>
+      </v-col>
+    </v-row>
+
+    <v-row
+      justify="center"
+      class="text-center"
+      v-if="!sensorOverlay && $vuetify.breakpoint.mdAndDown"
+    >
+      <v-col xs="6" md="4" lg="3">
+        <v-icon large left>mdi-thermometer</v-icon>
+        <v-progress-circular
+          :rotate="-90"
+          :size="80"
+          :width="10"
+          :value="(temperature / (2 * 17)) * 100"
+          color="blue"
+        >
+          {{ temperature }} °C
+        </v-progress-circular>
+      </v-col>
+      <v-col xs="6" md="4" lg="3">
+        <v-progress-circular
+          :rotate="-90"
+          :size="80"
+          :width="10"
+          :value="humidity"
+          color="blue"
+        >
+          {{ humidity }} %
+        </v-progress-circular>
+        <v-icon large right>mdi-water-percent</v-icon>
+      </v-col>
+    </v-row>
+
+    <v-row justify="center" v-if="!sensorOverlay">
+      <v-col xs="12" md="8" lg="6">
+        <canvas class="volume-meter" height="50" ref="canvas"></canvas>
       </v-col>
     </v-row>
 
     <v-row justify="center" class="text-center">
       <v-col xs="12" md="8" lg="6">
+        <v-btn v-if="muted" class="mx-2" color="primary" fab @click="unmute">
+          <v-icon>mdi-volume-off</v-icon>
+        </v-btn>
+        <v-btn v-else class="mx-2" fab @click="mute">
+          <v-icon>mdi-volume-high</v-icon>
+        </v-btn>
+
         <v-btn
           v-if="connected"
-          class="mx-2 white--text"
+          class="mx-2"
           fab
-          color="red"
+          x-large
+          color="primary"
           @click="disconnect"
         >
           <v-icon>mdi-stop</v-icon>
@@ -32,23 +137,11 @@
           v-else
           class="mx-2 white--text"
           fab
+          x-large
           color="green"
           @click="connect"
         >
           <v-icon>mdi-play</v-icon>
-        </v-btn>
-
-        <v-btn
-          v-if="muted"
-          class="mx-2 white--text"
-          color="primary"
-          fab
-          @click="unmute"
-        >
-          <v-icon>mdi-volume-off</v-icon>
-        </v-btn>
-        <v-btn v-else class="mx-2" fab @click="mute">
-          <v-icon>mdi-volume-high</v-icon>
         </v-btn>
 
         <v-btn v-if="light" color="primary" class="mx-2" fab @click="lightOff">
@@ -78,6 +171,11 @@
           color="primary"
           label="Native controls"
         ></v-switch>
+        <!-- <v-switch
+          v-model="sensorOverlay"
+          color="primary"
+          label="Sensor overlay"
+        ></v-switch> -->
       </v-col>
     </v-row>
   </v-container>
@@ -89,6 +187,38 @@
   width: 100%;
   height: 100%;
 }
+.volume-meter {
+  display: block;
+  width: 100%;
+}
+.volume-meter.overlay {
+  position: absolute;
+  bottom: 3px;
+  opacity: 0.6;
+}
+.temperature-meter.overlay,
+.humidity-meter.overlay {
+  position: absolute;
+  opacity: 0.6;
+  top: 10px;
+  text-shadow: 0px 0px 2px #333;
+  font-size: 13px;
+}
+/*.temperature-meter circle,
+.humidity-meter circle {
+  box-shadow: 0px 0px 2px 0px #333;
+}*/
+.volume-meter.overlay,
+.temperature-meter.overlay,
+.humidity-meter.overlay {
+  pointer-events: none;
+}
+.temperature-meter.overlay {
+  left: 0;
+}
+.humidity-meter.overlay {
+  right: 0;
+}
 </style>
 
 <script lang="ts">
@@ -97,7 +227,9 @@ import Component from "vue-class-component";
 import { Watch } from "vue-property-decorator";
 import { SignalingChannel } from "../rtc/signaling";
 import { establishPeerConnection } from "../rtc/peer-connection";
+import { VolumeMeter } from "../rtc/volume-meter";
 import { iOS } from "../platforms";
+import { getLights, updateLights, readSensors } from "../api";
 
 function randomString(length: number = 5, charSet: string = "0123456789") {
   let result = [];
@@ -111,6 +243,7 @@ function randomString(length: number = 5, charSet: string = "0123456789") {
 export default class Camera extends Vue {
   $refs!: {
     video: HTMLVideoElement;
+    canvas: HTMLCanvasElement;
   };
   nativeControls = true;
   volume = 100;
@@ -121,6 +254,30 @@ export default class Camera extends Vue {
 
   signaling: SignalingChannel | null = null;
   peerConnection: RTCPeerConnection | null = null;
+  volumeMeter: VolumeMeter | null = null;
+
+  temperature: number = 0;
+  humidity: number = 0;
+  sensorTimer: number = -1;
+  readonly sensorDelay = 10000;
+
+  sensorOverlay = false;
+
+  get volumeMeterColor(): string {
+    if (this.sensorOverlay) {
+      return "#fff";
+    } else {
+      return "#64B5F6";
+    }
+  }
+
+  get volumeMeterBorder(): string {
+    if (this.sensorOverlay) {
+      return "#999";
+    } else {
+      return "";
+    }
+  }
 
   data() {
     return {
@@ -128,8 +285,21 @@ export default class Camera extends Vue {
     };
   }
 
-  mounted() {
+  async created() {
+    this.light = await getLights();
+
+    await this.fetchSensors();
+    this.sensorTimer = setInterval(() => this.fetchSensors(), this.sensorDelay);
+  }
+
+  async mounted() {
     this.$refs.video.volume = this.volume / 100;
+  }
+
+  async fetchSensors() {
+    const data = await readSensors();
+    this.temperature = data.temperature;
+    this.humidity = data.humidity;
   }
 
   async connect() {
@@ -163,14 +333,30 @@ export default class Camera extends Vue {
       if (ev.streams.length > 0) {
         this.$refs.video.srcObject = ev.streams[0];
       }
+      if (ev.track.kind === "audio") {
+        if (this.volumeMeter) {
+          this.volumeMeter.close();
+          this.volumeMeter = null;
+        }
+        this.volumeMeter = new VolumeMeter(
+          ev.track,
+          this.$refs.canvas,
+          this.volumeMeterColor,
+          this.volumeMeterBorder
+        );
+      }
     });
 
     this.peerConnection.addEventListener("close", () => this.disconnect());
   }
 
-  disconnect() {
+  async disconnect() {
     if (!this.connected) {
       return;
+    }
+    if (this.volumeMeter) {
+      this.volumeMeter.close();
+      this.volumeMeter = null;
     }
     if (this.peerConnection) {
       this.peerConnection.close();
@@ -184,10 +370,12 @@ export default class Camera extends Vue {
     if (this.$refs.video) {
       this.$refs.video.srcObject = null;
     }
+    await this.lightOff();
   }
 
   destroyed() {
     this.disconnect();
+    clearInterval(this.sensorTimer);
   }
 
   play() {
@@ -212,18 +400,26 @@ export default class Camera extends Vue {
     this.$refs.video.muted = false;
   }
 
-  lightOn() {
-    this.light = true;
+  async lightOn() {
+    this.light = await updateLights(true);
   }
 
-  lightOff() {
-    this.light = false;
+  async lightOff() {
+    this.light = await updateLights(false);
   }
 
   @Watch("volume")
   onVolumeChanged(volume: number) {
     if (this.$refs.video) {
       this.$refs.video.volume = volume / 100;
+    }
+  }
+
+  @Watch("$vuetify.theme.dark")
+  onDarkModeChanged() {
+    if (this.volumeMeter) {
+      this.volumeMeter.color = this.volumeMeterColor;
+      this.volumeMeter.border = this.volumeMeterBorder;
     }
   }
 

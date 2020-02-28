@@ -14,7 +14,7 @@ export default new VueRouter({
       meta: { title: "Camera" }
     },
     {
-      path: "/network",
+      path: "/network/:device?",
       component: Settings,
       name: "network",
       meta: { title: "Network" }
