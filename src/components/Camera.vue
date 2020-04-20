@@ -347,7 +347,25 @@ export default class Camera extends Vue {
       }
     });
 
-    this.peerConnection.addEventListener("close", () => this.disconnect());
+    if (this.peerConnection.connectionState != undefined) {
+      this.peerConnection.addEventListener("connectionstatechange", ev => {
+        if (this.peerConnection) {
+          if (this.peerConnection.connectionState === "closed") {
+            this.disconnect();
+          }
+        }
+      });
+    }
+    // Older browsers that do not supprt the "connectionState" API yet.
+    else {
+      this.peerConnection.addEventListener("signalingstatechange", ev => {
+        if (this.peerConnection) {
+          if (this.peerConnection.signalingState === "closed") {
+            this.disconnect();
+          }
+        }
+      });
+    }
   }
 
   async disconnect() {

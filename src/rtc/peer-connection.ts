@@ -32,6 +32,10 @@ export function establishPeerConnection(
     );
   });
 
+  peerConnection.addEventListener("connectionstatechange", () => {
+    console.warn(peerConnection);
+  });
+
   signaling.on("offer", async (description: RTCSessionDescription) => {
     console.info("[peer-connection] Received offer", description);
 
