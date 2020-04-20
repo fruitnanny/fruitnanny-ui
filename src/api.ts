@@ -1,6 +1,7 @@
 export function urlFor(path: string): string {
   // return `http://localhost:9000${path}`;
-  return `http://fruitnanny.local:9000${path}`;
+  // return `http://fruitnanny.local:9000${path}`;
+  return `${document.location.origin}/api/${path}`;
 }
 
 export function poweroff(): Promise<void> {
