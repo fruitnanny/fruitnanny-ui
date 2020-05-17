@@ -111,7 +111,7 @@
         class="night-mode ml-1"
       ></v-switch>
 
-      <v-btn icon href="https://github.com/f3anaro/fruitnanny">
+      <v-btn icon href="https://fruitnanny.github.io/">
         <v-icon>mdi-github-circle</v-icon>
       </v-btn>
     </v-app-bar>

@@ -1,0 +1,8 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: fruitnanny-ui
+Upstream-Contact: Lucas Kahlert <lucas.kahlert@square-src.de>
+Source: https://github.com/fruitnanny/fruitnanny-ui
+
+Files: *
+Copyright: 2020 Lucas Kahlert <lucas.kahlert@square-src.de>
+License: GPL-3+

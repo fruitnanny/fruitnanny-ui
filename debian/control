@@ -1,0 +1,12 @@
+Source: fruitnanny-ui
+Section: web
+Priority: optional
+Maintainer: Lucas Kahlert <lucas.kahlert@square-src.de>
+Build-Depends: debhelper (>=11)
+Standards-Version: 4.0.0
+Homepage: https://github.com/fruitnanny/fruitnanny-ui
+
+Package: fruitnanny-ui
+Architecture: all
+Depends: ${misc:Depends}, fruitnanny-ui
+Description: FruitNanny UI
