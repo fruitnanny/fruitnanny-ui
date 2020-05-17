@@ -3,28 +3,68 @@
     <div class="text-center pa-4" v-if="loading">
       <v-progress-circular indeterminate color="primary"></v-progress-circular>
     </div>
-    <div class="pa-4" v-else-if="error">
-      <v-alert type="error">{{ error }}</v-alert>
-    </div>
     <v-card v-else flat>
       <v-tabs v-model="activeTab">
-        <v-tab><v-icon left>mdi-wifi</v-icon>WLAN</v-tab>
-        <v-tab><v-icon left>mdi-network-outline</v-icon>Ethernet</v-tab>
+        <v-tab><v-icon left>mdi-thermometer-lines</v-icon>Sensor</v-tab>
+        <v-tab><v-icon left>mdi-cogs</v-icon>System</v-tab>
 
         <v-tab-item>
-          <WLAN
-            @reload="reloadSettings"
-            @delete="deleteSettings"
-            @save="updateSettings"
-            :settings="wlanSettings"
-            :access-points="accessPoints"
-            :access-points-loading="loadingAccessPoints"
-            :active="activeWlanConnection"
-          ></WLAN>
+          <v-container>
+            <v-row>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  label="Temperatur Offset"
+                  type="number"
+                  prepend-icon="mdi-thermometer"
+                  append-icon="mdi-temperature-celsius"
+                  required
+                  :disabled="saving"
+                  v-model="temperatureOffset"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  label="Humidity Offset"
+                  type="number"
+                  prepend-icon="mdi-water-percent"
+                  append-icon="mdi-percent"
+                  required
+                  :disabled="saving"
+                  v-model="humidityOffset"
+                ></v-text-field>
+              </v-col>
+            </v-row>
+          </v-container>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="blue" text :disabled="saving" @click="cancel"
+              >Cancel</v-btn
+            >
+            <v-btn color="blue" text :disabled="saving" @click="save"
+              >Save</v-btn
+            >
+          </v-card-actions>
         </v-tab-item>
 
         <v-tab-item>
-          <Ethernet></Ethernet>
+          <v-container>
+            <v-row>
+              <v-col>
+                <v-btn :disabled="checkingForUpdates" @click="checkForUpdates">
+                  <v-progress-circular
+                    v-if="checkingForUpdates"
+                    indeterminate
+                    size="18"
+                    width="2"
+                    class="mr-1"
+                  >
+                  </v-progress-circular>
+                  <v-icon left v-else>mdi-sync</v-icon>
+                  Check for Updates
+                </v-btn>
+              </v-col>
+            </v-row>
+          </v-container>
         </v-tab-item>
       </v-tabs>
     </v-card>
@@ -33,130 +73,107 @@
 
 <script lang="ts">
 import Vue from "vue";
+import { Prop } from "vue-property-decorator";
 import Component from "vue-class-component";
 import {
-  Settings,
-  ActiveConnection,
-  AccessPoint,
-  listSettings,
-  deleteSettings,
+  Settings as SettingsInterface,
+  readSettings,
   updateSettings,
-  getActiveConnection,
-  getAccessPoints
+  readUpdatesWithDownload
 } from "../api";
-import WLAN from "./WLAN.vue";
-import Ethernet from "./Ethernet.vue";
 
-@Component({
-  components: {
-    WLAN,
-    Ethernet
-  }
-})
-export default class FruitNannySettings extends Vue {
+@Component
+export default class Settings extends Vue {
+  @Prop({ default: false }) readonly updatesAvailable!: boolean;
+
+  settings: SettingsInterface | null = null;
+  loading: boolean = true;
+  saving: boolean = false;
   activeTab: number = 0;
-  loading: boolean = false;
-  error: string | null = null;
-  scanTimer: number = -1;
+  checkingForUpdates: boolean = false;
 
-  ethernetSettings: Settings[] = [];
-  wlanSettings: Settings[] = [];
-  accessPoints: AccessPoint[] = [];
-  loadingAccessPoints: boolean = false;
+  temperatureOffset: string = "0";
+  humidityOffset: string = "0";
 
-  activeWlanConnection: ActiveConnection | null = null;
-
-  created() {
-    this.loading = true;
-    this.fetchSettings().finally(() => (this.loading = false));
-    this.fetchWirelessNetworks();
-  }
-
-  beforeDestroy() {
-    clearInterval(this.scanTimer);
-  }
-
-  async fetchSettings() {
+  async created() {
     try {
-      const settings = await listSettings();
-
-      this.ethernetSettings = settings.filter(
-        c => c.connection.type === "ethernet"
-      );
-      this.wlanSettings = settings.filter(
-        c => c.connection.type === "wireless"
-      );
-
-      this.activeWlanConnection = await getActiveConnection("wlan0");
+      this.settings = await readSettings();
+      this.loading = false;
     } catch (err) {
       console.error(err);
-      this.error = "Could not load network settings";
+      this.$notify.send({
+        color: "error",
+        text: "Failed to load settings"
+      });
+    }
+    this.copy();
+  }
+
+  cancel() {
+    this.copy();
+  }
+
+  copy() {
+    if (this.settings) {
+      this.temperatureOffset = this.settings!.temperatureOffset.toString();
+      this.humidityOffset = this.settings!.humidityOffset.toString();
+    } else {
+      this.temperatureOffset = "0";
+      this.humidityOffset = "0";
     }
   }
 
-  async fetchWirelessNetworks() {
-    this.loadingAccessPoints = true;
+  async save() {
+    if (this.saving) {
+      return;
+    }
+
+    let temperatureOffset;
+    let humidityOffset;
+
     try {
-      this.accessPoints = await getAccessPoints();
+      temperatureOffset = parseFloat(this.temperatureOffset);
+      humidityOffset = parseFloat(this.humidityOffset);
+    } catch (err) {
+      this.$notify.send({
+        color: "error",
+        text: "Invalid offset values"
+      });
+      return;
+    }
+
+    this.saving = true;
+    try {
+      this.settings = await updateSettings({
+        temperatureOffset: temperatureOffset,
+        humidityOffset: humidityOffset
+      });
+    } catch (err) {
+      console.error(err);
+      this.$notify.send({
+        color: "error",
+        text: "Failed to save settings"
+      });
     } finally {
-      this.loadingAccessPoints = false;
+      this.saving = false;
     }
-
-    // Scan wireless networks every 10s
-    this.scanTimer = setTimeout(() => this.fetchWirelessNetworks(), 10000);
   }
 
-  async deleteSettings(
-    settings: Settings,
-    resolve?: (value?: any) => void,
-    reject?: (reason?: any) => void
-  ) {
-    try {
-      await deleteSettings(settings.connection.uuid);
-    } catch (err) {
-      if (reject) {
-        reject(err);
-      } else {
-        console.error(err);
-      }
+  async checkForUpdates() {
+    if (this.checkingForUpdates) {
       return;
     }
-
-    await this.reloadSettings();
-
-    if (resolve) {
-      resolve();
-    }
-  }
-
-  async updateSettings(
-    settings: Settings,
-    resolve?: (value?: any) => void,
-    reject?: (reason?: any) => void
-  ) {
+    this.checkingForUpdates = true;
     try {
-      await updateSettings(settings);
+      await readUpdatesWithDownload();
     } catch (err) {
-      if (reject) {
-        reject();
-      } else {
-        console.error(err);
-      }
-      return;
-    }
-
-    await this.reloadSettings();
-
-    if (resolve) {
-      resolve();
-    }
-  }
-
-  async reloadSettings(callback?: () => void) {
-    console.info("Reload network settings");
-    await this.fetchSettings();
-    if (callback) {
-      callback();
+      console.error(err);
+      this.$notify.send({
+        color: "error",
+        text: "Failed to check updates"
+      });
+    } finally {
+      this.checkingForUpdates = false;
     }
   }
 }

@@ -12,7 +12,7 @@
           color="blue"
           :elevation="1"
         >
-          {{ temperature }} °C
+          {{ temperatureRounded }} °C
         </v-progress-circular>
       </v-col>
 
@@ -27,7 +27,7 @@
               :value="(temperature / (2 * 17)) * 100"
               color="white"
             >
-              {{ temperature }} °C
+              {{ temperatureRounded }} °C
             </v-progress-circular>
           </div>
 
@@ -49,7 +49,7 @@
               :value="humidity"
               color="white"
             >
-              {{ humidity }} %
+              {{ humidityRounded }} %
             </v-progress-circular>
             <v-icon color="white" large right>mdi-water-percent</v-icon>
           </div>
@@ -71,7 +71,7 @@
           :value="humidity"
           color="blue"
         >
-          {{ humidity }} %
+          {{ humidityRounded }} %
         </v-progress-circular>
         <v-icon large right>mdi-water-percent</v-icon>
       </v-col>
@@ -91,7 +91,7 @@
           :value="(temperature / (2 * 17)) * 100"
           color="blue"
         >
-          {{ temperature }} °C
+          {{ temperatureRounded }} °C
         </v-progress-circular>
       </v-col>
       <v-col xs="6" md="4" lg="3">
@@ -102,14 +102,14 @@
           :value="humidity"
           color="blue"
         >
-          {{ humidity }} %
+          {{ humidityRounded }} %
         </v-progress-circular>
         <v-icon large right>mdi-water-percent</v-icon>
       </v-col>
     </v-row>
 
     <v-row justify="center" v-if="!sensorOverlay">
-      <v-col xs="12" md="8" lg="6">
+      <v-col cols="12" md="8" lg="6">
         <canvas class="volume-meter" height="50" ref="canvas"></canvas>
       </v-col>
     </v-row>
@@ -168,6 +168,7 @@
       <v-col xs="12" md="8" lg="6">
         <v-switch
           v-model="nativeControls"
+          @change="toggleNativeControls"
           color="primary"
           label="Native controls"
         ></v-switch>
@@ -183,7 +184,8 @@
 
 <style type="text/css">
 .remote-video {
-  background: #37474f;
+  /* background: #37474f; */
+  background: #121212;
   width: 100%;
   height: 100%;
 }
@@ -229,7 +231,8 @@ import { SignalingChannel } from "../rtc/signaling";
 import { establishPeerConnection } from "../rtc/peer-connection";
 import { VolumeMeter } from "../rtc/volume-meter";
 import { iOS } from "../platforms";
-import { getLights, updateLights, readSensors } from "../api";
+import { readUseNativeControls, putUseNativeControls } from "../settings";
+import { getLight, updateLight, readSensors, signalingUrl } from "../api";
 
 function randomString(length: number = 5, charSet: string = "0123456789") {
   let result = [];
@@ -279,14 +282,22 @@ export default class Camera extends Vue {
     }
   }
 
+  get temperatureRounded() {
+    return Math.round(this.temperature * 10) / 10;
+  }
+
+  get humidityRounded() {
+    return Math.round(this.humidity * 10) / 10;
+  }
+
   data() {
     return {
-      nativeControls: iOS()
+      nativeControls: readUseNativeControls()
     };
   }
 
   async created() {
-    this.light = await getLights();
+    this.light = await getLight();
 
     await this.fetchSensors();
     this.sensorTimer = setInterval(() => this.fetchSensors(), this.sensorDelay);
@@ -308,13 +319,20 @@ export default class Camera extends Vue {
     }
     this.connected = true;
 
-    const scheme = "ws";
-    const host = "fruitnanny.local:8889" || location.host;
-    const path = "/rws/ws";
-
-    const url = `${scheme}://${host}${path}`;
-
-    this.signaling = new SignalingChannel(url);
+    try {
+      this.volumeMeter = new VolumeMeter(
+        this.$refs.canvas,
+        this.volumeMeterColor,
+        this.volumeMeterBorder
+      );
+    } catch (err) {
+      console.error(err);
+      this.$notify.send({
+        color: "error",
+        text: "Failed to create volume meter"
+      });
+    }
+    this.signaling = new SignalingChannel(signalingUrl());
     this.peerConnection = establishPeerConnection(this.signaling);
 
     try {
@@ -325,6 +343,10 @@ export default class Camera extends Vue {
       });
     } catch (e) {
       console.error(e);
+      this.$notify.send({
+        color: "error",
+        text: "Failed to connect to signaling server"
+      });
       this.disconnect();
       return;
     }
@@ -332,18 +354,23 @@ export default class Camera extends Vue {
     this.peerConnection.addEventListener("track", ev => {
       if (ev.streams.length > 0) {
         this.$refs.video.srcObject = ev.streams[0];
-      }
-      if (ev.track.kind === "audio") {
+
         if (this.volumeMeter) {
-          this.volumeMeter.close();
-          this.volumeMeter = null;
+          try {
+            this.volumeMeter.connect(ev.streams[0]);
+          } catch (err) {
+            console.error(err);
+            this.$notify.send({
+              color: "error",
+              text: "Failed to connect volume meter"
+            });
+          }
         }
-        this.volumeMeter = new VolumeMeter(
-          ev.track,
-          this.$refs.canvas,
-          this.volumeMeterColor,
-          this.volumeMeterBorder
-        );
+
+        // iOS Safari does not automatically start the video
+        if (iOS()) {
+          this.$refs.video.play();
+        }
       }
     });
 
@@ -396,18 +423,6 @@ export default class Camera extends Vue {
     clearInterval(this.sensorTimer);
   }
 
-  play() {
-    if (this.connected) {
-      this.$refs.video.play();
-    } else {
-      this.connect();
-    }
-  }
-
-  pause() {
-    this.$refs.video.pause();
-  }
-
   mute() {
     this.muted = true;
     this.$refs.video.muted = true;
@@ -419,11 +434,16 @@ export default class Camera extends Vue {
   }
 
   async lightOn() {
-    this.light = await updateLights(true);
+    this.light = await updateLight(true);
   }
 
   async lightOff() {
-    this.light = await updateLights(false);
+    this.light = await updateLight(false);
+  }
+
+  toggleNativeControls(state: boolean) {
+    putUseNativeControls(state);
+    this.nativeControls = state;
   }
 
   @Watch("volume")

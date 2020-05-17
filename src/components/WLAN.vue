@@ -1,73 +1,50 @@
 <template>
-  <v-list subheader>
-    <!-- <v-list-item
-      @click="edit(activeConnection)"
-      two-line
-      :disabled="connecting"
-    >
-      <v-list-item-avatar>
-        <v-progress-circular
-          indeterminate
-          color="primary"
-          v-if="connecting"
-        ></v-progress-circular>
-        <v-icon color="primary" v-else>mdi-check</v-icon>
-      </v-list-item-avatar>
-      <v-list-item-content>
-        <v-list-item-title>{{ activeConnection.name }}</v-list-item-title>
-      </v-list-item-content>
-
-      <v-list-item-icon>
-        <v-icon>mdi-lock</v-icon>
-      </v-list-item-icon>
-
-      <v-list-item-icon>
-        <v-icon>{{ activeConnection.icon }}</v-icon>
-      </v-list-item-icon>
-
-      <v-list-item-action @click.stop.prevent="edit(activeConnection)">
-        <v-btn icon color="accent">
-          <v-icon>mdi-settings</v-icon>
-        </v-btn>
-      </v-list-item-action>
-    </v-list-item> -->
-
-    <v-subheader v-if="settings.length">My Networks</v-subheader>
+  <div class="text-center pa-4" v-if="loading">
+    <v-progress-circular indeterminate color="primary"></v-progress-circular>
+  </div>
+  <v-list subheader v-else>
+    <v-subheader v-if="myNetworks.length">My Networks</v-subheader>
     <v-list-item
-      v-for="s in settings"
-      :key="s.connection.uuid"
-      @click="connect(s)"
-      :disabled="connecting !== null"
+      v-for="network in myNetworks"
+      :key="network.connection.id"
+      @click="activate(network.connection)"
+      :disabled="activating !== null"
     >
       <v-list-item-avatar>
         <v-progress-circular
           indeterminate
           color="primary"
-          v-if="isConnecting(s)"
+          v-if="isActivating(network.connection)"
         ></v-progress-circular>
-        <v-icon color="primary" v-else-if="isActive(s)">mdi-check</v-icon>
+        <v-icon color="primary" v-else-if="isActive(network.connection)"
+          >mdi-check</v-icon
+        >
       </v-list-item-avatar>
 
       <v-list-item-content>
-        <v-list-item-title v-text="s.connection.name"></v-list-item-title>
+        <v-list-item-title v-text="network.connection.name"></v-list-item-title>
       </v-list-item-content>
 
-      <v-list-item-icon v-if="isEncrypted(s)">
-        <v-icon>mdi-lock</v-icon>
-      </v-list-item-icon>
+      <v-list-item-action v-if="network.accessPoint && network.accessPoint.rsn">
+        <v-icon dense>mdi-lock</v-icon>
+      </v-list-item-action>
 
-      <v-list-item-icon>
-        <v-icon>{{ networkIcon(s) }}</v-icon>
-      </v-list-item-icon>
+      <v-list-item-action v-if="network.accessPoint">
+        <v-icon dense>{{ accessPointIcon(network.accessPoint) }}</v-icon>
+      </v-list-item-action>
 
-      <v-list-item-action @click.stop="edit(s)">
+      <v-list-item-action v-if="network.accessPoint">
+        <v-icon dense>{{ accessPointStrength(network.accessPoint) }}</v-icon>
+      </v-list-item-action>
+
+      <v-list-item-action @click.stop="edit(network.connection)">
         <v-btn icon color="accent">
-          <v-icon>mdi-settings</v-icon>
+          <v-icon>mdi-pencil</v-icon>
         </v-btn>
       </v-list-item-action>
     </v-list-item>
 
-    <v-subheader>
+    <v-subheader v-if="otherNetworks.length > 0 || accessPointsLoading">
       Other Networks
       <v-progress-circular
         class="ml-2"
@@ -77,42 +54,40 @@
         v-if="accessPointsLoading"
       ></v-progress-circular>
     </v-subheader>
+    <v-subheader v-else>
+      No networks found
+    </v-subheader>
     <v-list-item
       v-for="accessPoint in otherNetworks"
       :key="accessPoint.id"
-      @click="connectNew(accessPoint)"
+      @click="connect(accessPoint)"
       :disabled="connecting !== null"
       two-line
     >
-      <v-list-item-avatar></v-list-item-avatar>
+      <v-list-item-avatar>
+        <v-progress-circular
+          indeterminate
+          color="primary"
+          v-if="isConnecting(accessPoint)"
+        ></v-progress-circular>
+      </v-list-item-avatar>
 
       <v-list-item-content>
         <v-list-item-title v-text="accessPoint.ssid"></v-list-item-title>
-        <v-list-item-subtitle>
-          Channel {{ accessPointChannel(accessPoint) }}
-        </v-list-item-subtitle>
       </v-list-item-content>
 
-      <v-list-item-icon v-if="isAccessPointEncrypted(accessPoint)">
-        <v-icon>mdi-lock</v-icon>
-      </v-list-item-icon>
+      <v-list-item-action v-if="accessPoint.rsn">
+        <v-icon dense>mdi-lock</v-icon>
+      </v-list-item-action>
 
-      <v-list-item-icon>
-        <v-icon>{{ accessPointIcon(accessPoint) }}</v-icon>
-      </v-list-item-icon>
+      <v-list-item-action>
+        <v-icon dense>{{ accessPointIcon(accessPoint) }}</v-icon>
+      </v-list-item-action>
 
-      <v-list-item-icon>
-        <v-icon>{{ accessPointStrength(accessPoint) }}</v-icon>
-      </v-list-item-icon>
-
-      <!-- <v-list-item-icon>
-        <v-progress-circular size="24" width="4" rotate="-90" :value="accessPoint.strength"></v-progress-circular>
-      </v-list-item-icon> -->
+      <v-list-item-action>
+        <v-icon dense>{{ accessPointStrength(accessPoint) }}</v-icon>
+      </v-list-item-action>
     </v-list-item>
-
-    <!-- <v-btn fixed dark fab bottom right color="pink" @click="newConnection">
-      <v-icon>mdi-plus</v-icon>
-    </v-btn> -->
 
     <v-dialog
       :value="isEditing"
@@ -122,12 +97,57 @@
     >
       <WLANSettings
         v-if="isEditing"
-        :settings="editSettings"
+        :connection="editConnection"
         :disabled="isProcessing"
         @close="close"
-        @save="save"
-        @delete="deleteSettings"
+        @save="updateConnection"
+        @delete="deleteConnection"
       ></WLANSettings>
+    </v-dialog>
+
+    <v-dialog
+      :value="passwordDialog"
+      @click:outside="closePasswordDialog"
+      max-width="600px"
+    >
+      <v-card>
+        <v-card-title>
+          <span class="headline" v-if="passwordDialog">
+            Connect to {{ passwordDialog.ssid }}
+          </span>
+        </v-card-title>
+        <v-card-text>
+          <v-container>
+            <v-row>
+              <v-col>
+                <v-text-field
+                  label="Password"
+                  required
+                  type="password"
+                  v-model="connectPassword"
+                  @keydown.enter="connect(passwordDialog)"
+                  :append-icon="showConnectPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                  @click:append="showConnectPassword = !showConnectPassword"
+                ></v-text-field>
+              </v-col>
+            </v-row>
+          </v-container>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="blue" text @click="closePasswordDialog">
+            Cancel
+          </v-btn>
+          <v-btn
+            color="blue"
+            text
+            @click="connect(passwordDialog)"
+            :disabled="!connectPassword"
+            >Connect</v-btn
+          >
+        </v-card-actions>
+      </v-card>
     </v-dialog>
   </v-list>
 </template>
@@ -138,57 +158,23 @@ import Component from "vue-class-component";
 import { Prop } from "vue-property-decorator";
 import WLANSettings from "./WLAN-Settings.vue";
 import {
-  Settings,
-  ActiveConnection,
+  Connection,
   AccessPoint,
-  createCheckpoint,
-  deleteCheckpoint,
-  activateConnection
+  withCheckpoint,
+  listConnections,
+  listAccessPoints,
+  deleteConnection,
+  updateConnection,
+  connect,
+  activate
 } from "../api";
+import copy from "../copy";
 
-// access point requires authentication and encryption (usually means WEP)
-const NM_802_11_AP_FLAGS_PRIVACY = 0x00000001;
+type AccessPointMap = { [key: string]: AccessPoint };
 
-const channelMap: { [frequency: number]: number } = {
-  2412: 1,
-  2417: 2,
-  2422: 3,
-  2427: 4,
-  2432: 5,
-  2437: 6,
-  2442: 7,
-  2447: 8,
-  2452: 9,
-  2457: 10,
-  2462: 11,
-  2467: 12,
-  2472: 13,
-  2484: 14
-};
-
-function copy<T>(obj: T): T {
-  if (obj === null) {
-    return obj;
-  }
-  if (obj === undefined) {
-    return obj;
-  }
-  if (obj instanceof Date) {
-    return new Date(obj.getTime()) as any;
-  }
-  if (obj instanceof Array) {
-    return obj.map((n: any) => copy<any>(n)) as any;
-  }
-  if (typeof obj === "object") {
-    const _copy = { ...(obj as { [key: string]: any }) } as {
-      [key: string]: any;
-    };
-    Object.keys(_copy).forEach(key => {
-      _copy[key] = copy<any>(_copy[key]);
-    });
-    return _copy as T;
-  }
-  return obj;
+interface MyNetwork {
+  connection: Connection;
+  accessPoint: AccessPoint;
 }
 
 @Component({
@@ -197,57 +183,91 @@ function copy<T>(obj: T): T {
   }
 })
 export default class WLAN extends Vue {
-  connecting: Settings | null = null;
-  loading: boolean = false;
+  @Prop({ default: null }) readonly active!: Connection | null;
+  @Prop({ default: false }) readonly visible!: boolean;
 
-  snackbar: boolean = false;
+  loading: boolean = true;
+  activating: Connection | null = null;
+  connections: Connection[] = [];
+  accessPoints: AccessPoint[] = [];
+  accessPointsLoading: boolean = false;
+  connecting: string | null = null;
+  scanTimer: number = -1;
 
-  @Prop() readonly settings!: Settings[];
-  @Prop() readonly accessPoints!: AccessPoint[];
-  @Prop() readonly accessPointsLoading!: boolean;
-  @Prop() readonly active!: ActiveConnection | null;
+  passwordDialog: AccessPoint | null = null;
+  connectPassword: string = "";
+  showConnectPassword: boolean = true;
+  editConnection: Connection | null = null;
+  processing: Connection | null = null;
 
-  editSettings: Settings | null = null;
-  processing: Promise<void> | null = null;
-
-  get mySettings() {
-    return this.settings.sort((a, b) =>
-      Number(
-        a.connection.autoconnect_priority > b.connection.autoconnect_priority
-      )
+  get myNetworks(): MyNetwork[] {
+    const visibleNetworks: AccessPointMap = this.accessPoints.reduce(
+      (map: AccessPointMap, accessPoint) => {
+        map[accessPoint.ssid] = accessPoint;
+        return map;
+      },
+      {}
     );
+
+    return this.connections
+      .filter(
+        connection =>
+          this.isActive(connection) || connection.ssid in visibleNetworks
+      )
+      .sort((a, b) => Number(a.priority > b.priority))
+      .map(connection => {
+        return {
+          connection,
+          accessPoint: visibleNetworks[connection.ssid]
+        };
+      });
   }
 
   get isEditing(): boolean {
-    return this.editSettings !== null;
+    return this.editConnection !== null;
   }
 
   get isProcessing(): boolean {
     return this.processing !== null;
   }
 
-  isEncrypted(settings: Settings) {
-    return true;
+  async created() {
+    // Scan wireless networks every 20s
+    this.loadAccessPoints();
+    this.scanTimer = setInterval(() => this.loadAccessPoints(), 20000);
+
+    this.connections = await listConnections();
+    this.loading = false;
   }
 
-  networkIcon(settings: Settings) {
-    switch (settings.connection.type) {
-      case "ethernet":
-        return "mdi-network-outline";
-      case "wireless":
-        switch (settings.wifi!.mode) {
-          case "ap":
-            return "mdi-access-point";
-          default:
-            return "mdi-wifi";
-        }
-      default:
-        return "";
+  beforeDestroy() {
+    clearInterval(this.scanTimer);
+  }
+
+  async loadAccessPoints() {
+    // Only update if visible
+    if (!this.visible) {
+      return;
     }
-  }
+    // We are already loading access points
+    if (this.accessPointsLoading) {
+      return;
+    }
+    // We are trying to activate a connection
+    if (this.activating) {
+      return;
+    }
+    // We are trying to connect to a new network
+    if (this.connecting) {
+      return;
+    }
 
-  isAccessPointEncrypted(accessPoint: AccessPoint) {
-    return Boolean(accessPoint.flags & NM_802_11_AP_FLAGS_PRIVACY);
+    this.accessPointsLoading = true;
+    try {
+      this.accessPoints = await listAccessPoints();
+    } finally {
+      this.accessPointsLoading = false;
+    }
   }
 
   accessPointStrength(accessPoint: AccessPoint) {
@@ -262,87 +282,68 @@ export default class WLAN extends Vue {
 
   accessPointIcon(accessPoint: AccessPoint) {
     switch (accessPoint.mode) {
-      case "infra":
+      case "infrastructure":
         return "mdi-wifi";
-      case "ap":
+      case "ad-hoc":
         return "mdi-access-point";
       default:
         return "";
     }
   }
 
-  accessPointChannel(accessPoint: AccessPoint) {
-    return channelMap[accessPoint.frequency];
-  }
-
   get otherNetworks(): AccessPoint[] {
-    const knownSSIDs = this.settings.map(settings => settings.wifi!.ssid);
+    const knownSSIDs = this.connections.map(connection => connection.ssid);
+    const signalThreshold = 25;
 
     return this.accessPoints
       .filter(accessPoint => !knownSSIDs.includes(accessPoint.ssid))
+      .filter(accessPoint => accessPoint.strength >= signalThreshold)
       .sort((a, b) => Number(a.strength < b.strength));
   }
 
-  isActive(settings: Settings) {
+  isActive(connection: Connection) {
     if (!this.active) {
       return false;
     }
-    return settings.connection.uuid === this.active.uuid;
+    return connection.id === this.active.id;
   }
 
-  isConnecting(settings: Settings) {
+  isActivating(connection: Connection) {
+    if (!this.activating) {
+      return false;
+    }
+    return connection.id == this.activating.id;
+  }
+
+  edit(connection: Connection) {
+    this.editConnection = copy(connection);
+  }
+
+  isConnecting(accessPoint: AccessPoint) {
     if (!this.connecting) {
       return false;
     }
-    return settings.connection.uuid == this.connecting.connection.uuid;
+    return accessPoint.ssid == this.connecting;
   }
 
-  edit(settings: Settings) {
-    this.editSettings = copy(settings);
-  }
-
-  connect(settings: Settings) {
-    if (this.connecting) {
-      return;
-    }
-
-    this.connecting = settings;
-
-    this.doConnect()
-      .catch(error => {
-        this.$emit("error", error);
-      })
-      .finally(() => {
-        this.connecting = null;
-      });
-  }
-
-  async doConnect() {
-    // TODO: Better error message, e.g. 409 Conflict means checkpoint already exists.
-    const checkpoint = await createCheckpoint();
-
-    await activateConnection("wlan0", this.connecting!.connection.uuid);
-
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    let cleared = false;
-    while (!cleared) {
-      try {
-        console.debug("Try to clear checkpoint");
-        await deleteCheckpoint(checkpoint);
-        cleared = true;
-      } catch (err) {
-        console.error(err);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+  connect(accessPoint: AccessPoint) {
+    if (accessPoint.rsn) {
+      if (this.connectPassword) {
+        this.doConnect(accessPoint.ssid, this.connectPassword);
+        this.closePasswordDialog();
+      } else {
+        this.passwordDialog = accessPoint;
       }
+    } else {
+      this.doConnect(accessPoint.ssid, null);
     }
-
-    return new Promise(resolve => {
-      this.$emit("reload", resolve);
-    });
   }
 
-  connectNew(networkName: AccessPoint) {}
+  closePasswordDialog() {
+    this.connectPassword = "";
+    this.showConnectPassword = false;
+    this.passwordDialog = null;
+  }
 
   close() {
     // Clicks outside the dialog trigger "close" action. Prevent closing if
@@ -350,57 +351,107 @@ export default class WLAN extends Vue {
     if (this.isProcessing) {
       return;
     }
-    this.editSettings = null;
+    this.editConnection = null;
   }
 
-  async save() {
+  async deleteConnection(
+    connection: Connection,
+    resolve: () => void,
+    reject: (reason: any) => void
+  ) {
     if (this.processing) {
       return;
     }
-
-    this.processing = new Promise((resolve, reject) => {
-      this.$emit("save", this.editSettings, resolve, reject);
-    });
-
+    this.processing = connection;
     try {
-      await this.processing;
+      await deleteConnection(connection.id);
     } catch (err) {
       console.error(err);
-      this.$notify.send({
-        color: "error",
-        text: "Could not save network settings"
-      });
+      this.processing = null;
+      return;
+    }
+    await this.reloadConnections();
+
+    this.editConnection = null;
+    this.processing = null;
+  }
+
+  async updateConnection(
+    connection: Connection,
+    resolve: () => void,
+    reject: (reason: any) => void
+  ) {
+    if (this.processing) {
+      return;
+    }
+    this.processing = connection;
+    try {
+      await updateConnection(connection);
+    } catch (err) {
+      reject(err);
+
       this.processing = null;
       return;
     }
 
-    this.editSettings = null;
-    this.processing = null;
+    try {
+      await this.reloadConnections();
+      resolve();
+      this.editConnection = null;
+    } finally {
+      this.processing = null;
+    }
   }
 
-  async deleteSettings(settings: Settings) {
-    if (this.processing) {
+  async reloadConnections() {
+    this.connections = await listConnections();
+  }
+
+  async activate(connection: Connection) {
+    if (this.activating) {
       return;
     }
-    this.processing = new Promise((resolve, reject) => {
-      this.$emit("delete", settings, resolve, reject);
-    });
+    // Do not activate already active connections
+    if (this.active && this.active.id == connection.id) {
+      return;
+    }
+    this.activating = connection;
+
     try {
-      await this.processing;
+      // await new Promise(resolve => setTimeout(resolve, 3000));
+      await withCheckpoint(() => activate({ type: "wifi", id: connection.id }));
     } catch (err) {
       console.error(err);
       this.$notify.send({
         color: "error",
-        text: "Could not delete network settings"
+        text: "Failed to activate connection"
       });
-      this.processing = null;
-      return;
+    } finally {
+      await this.reloadConnections();
+      await new Promise(resolve => this.$emit("reload", resolve));
+      this.activating = null;
     }
-
-    this.editSettings = null;
-    this.processing = null;
   }
 
-  newConnection() {}
+  async doConnect(ssid: string, password: string | null) {
+    if (this.connecting) {
+      return;
+    }
+    this.connecting = ssid;
+    try {
+      // await new Promise(resolve => setTimeout(resolve, 3000));
+      await withCheckpoint(() => connect({ ssid, password }));
+    } catch (err) {
+      console.error(err);
+      this.$notify.send({
+        color: "error",
+        text: "Failed to connect"
+      });
+    } finally {
+      await this.reloadConnections();
+      await new Promise(resolve => this.$emit("reload", resolve));
+      this.connecting = null;
+    }
+  }
 }
 </script>

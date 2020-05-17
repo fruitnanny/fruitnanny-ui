@@ -3,28 +3,37 @@ export class VolumeMeter {
   canvas: HTMLCanvasElement;
   color: string;
   border: string;
+  audioCtx: AudioContext;
+  canvasCtx: CanvasRenderingContext2D;
+  connected: boolean = false;
 
-  constructor(
-    track: MediaStreamTrack,
-    canvas: HTMLCanvasElement,
-    color: string,
-    border: string
-  ) {
+  constructor(canvas: HTMLCanvasElement, color: string, border: string) {
     this.canvas = canvas;
     this.color = color;
     this.border = border;
 
     const canvasCtx = canvas.getContext("2d");
-    if (!canvasCtx) {
+    if (canvasCtx === null) {
+      throw new Error("Cannot create 2D canvas context");
+    }
+    this.canvasCtx = canvasCtx;
+    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Ensure audio context is running on iOS
+    this.audioCtx.resume();
+  }
+
+  connect(stream: MediaStream) {
+    if (this.connected) {
       return;
     }
+    this.connected = true;
 
-    const audioCtx = new AudioContext();
+    let analyser = this.audioCtx.createAnalyser();
+    analyser.fftSize = 256;
 
-    let analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 512;
-
-    let source = audioCtx.createMediaStreamTrackSource(track);
+    // let source = this.audioCtx.createMediaStreamTrackSource(track);
+    let source = this.audioCtx.createMediaStreamSource(stream);
     source.connect(analyser);
 
     const bufferLength = analyser.frequencyBinCount;
@@ -33,14 +42,14 @@ export class VolumeMeter {
     const draw = () => {
       analyser.getByteFrequencyData(frequencies);
 
-      const boundingBox = canvas.getBoundingClientRect();
+      const boundingBox = this.canvas.getBoundingClientRect();
       const canvasHeight = Math.floor(boundingBox.height);
       const canvasWidth = Math.floor(boundingBox.width);
 
-      canvas.height = canvasHeight;
-      canvas.width = canvasWidth;
+      this.canvas.height = canvasHeight;
+      this.canvas.width = canvasWidth;
 
-      canvasCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+      this.canvasCtx.clearRect(0, 0, canvasWidth, canvasHeight);
 
       let barWidth = (canvasWidth / bufferLength) * 2.5;
       let x = 0;
@@ -49,16 +58,21 @@ export class VolumeMeter {
         const barHeight = frequencies[i] / 2;
 
         if (this.border) {
-          canvasCtx.fillStyle = "#999";
-          canvasCtx.fillRect(
+          this.canvasCtx.fillStyle = "#999";
+          this.canvasCtx.fillRect(
             x - 1,
             canvasHeight - barHeight - 1,
             barWidth + 1,
             barHeight + 1
           );
         }
-        canvasCtx.fillStyle = this.color;
-        canvasCtx.fillRect(x, canvasHeight - barHeight, barWidth, barHeight);
+        this.canvasCtx.fillStyle = this.color;
+        this.canvasCtx.fillRect(
+          x,
+          canvasHeight - barHeight,
+          barWidth,
+          barHeight
+        );
 
         x += barWidth + 1;
       }
@@ -71,11 +85,11 @@ export class VolumeMeter {
   close() {
     cancelAnimationFrame(this.frameId);
 
+    // Stop audio processing
+    this.audioCtx.close();
+
     // Clear canvas
-    const canvasCtx = this.canvas.getContext("2d");
-    if (canvasCtx) {
-      const boundingBox = this.canvas.getBoundingClientRect();
-      canvasCtx.clearRect(0, 0, boundingBox.width, boundingBox.height);
-    }
+    const boundingBox = this.canvas.getBoundingClientRect();
+    this.canvasCtx.clearRect(0, 0, boundingBox.width, boundingBox.height);
   }
 }
