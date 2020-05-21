@@ -26,10 +26,12 @@ export function reboot(): Promise<void> {
   });
 }
 
-interface UpdateStatus {
-  "fruitnanny-api": boolean;
-  "fruitnanny-ui": boolean;
-  rws: boolean;
+type UpdateStatus = "recent" | "available";
+
+interface UpdateResponse {
+  "fruitnanny-api": UpdateStatus;
+  "fruitnanny-ui": UpdateStatus;
+  rws: UpdateStatus;
 }
 
 async function _readUpdates(url: string): Promise<boolean> {
@@ -37,8 +39,12 @@ async function _readUpdates(url: string): Promise<boolean> {
   if (!response.ok) {
     throw new Error(response.statusText);
   }
-  let status: UpdateStatus = await response.json();
-  return status["fruitnanny-ui"] || status["fruitnanny-api"] || status.rws;
+  let status: UpdateResponse = await response.json();
+  return (
+    status["fruitnanny-ui"] === "available" ||
+    status["fruitnanny-api"] === "available" ||
+    status.rws === "available"
+  );
 }
 
 export async function readUpdates(download = false): Promise<boolean> {
