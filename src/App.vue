@@ -198,7 +198,7 @@ export default class App extends Vue {
 
   connectivityInterval = -1;
   connectivity = "full";
-  updatesAvailable = true;
+  updatesAvailable = false;
   upgrading = false;
 
   get noConnectivity() {
