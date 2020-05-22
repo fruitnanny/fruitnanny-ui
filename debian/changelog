@@ -1,3 +1,9 @@
+fruitnanny-ui (20.05.3) buster; urgency=medium
+
+  * Check only once for updates per page load
+
+ -- Lucas Kahlert <lucas.kahlert@square-src.de>  Fri, 22 May 2020 04:13:44 +0200
+
 fruitnanny-ui (20.05.2) buster; urgency=medium
 
   * Set default update status to false
