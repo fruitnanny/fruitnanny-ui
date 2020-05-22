@@ -116,6 +116,22 @@ export function makeServer(): Server {
           connectivity: "full"
         };
       });
+
+      this.get("/updates", (schema, request) => {
+        if (request.queryParams.download) {
+          return {
+            "fruitnanny-api": "recent",
+            "fruitnanny-ui": "available",
+            rws: "recent"
+          };
+        } else {
+          return {
+            "fruitnanny-api": "recent",
+            "fruitnanny-ui": "recent",
+            rws: "recent"
+          };
+        }
+      });
     },
 
     seeds(server) {

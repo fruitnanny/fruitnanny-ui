@@ -165,7 +165,8 @@ export default class Settings extends Vue {
     }
     this.checkingForUpdates = true;
     try {
-      await readUpdatesWithDownload();
+      const updatesAvailable = await readUpdatesWithDownload();
+      this.$emit("updates-changed", updatesAvailable);
     } catch (err) {
       console.error(err);
       this.$notify.send({

@@ -116,7 +116,10 @@
       </v-btn>
     </v-app-bar>
     <v-content>
-      <router-view :updates-available="updatesAvailable"></router-view>
+      <router-view
+        :updates-available="updatesAvailable"
+        @updates-changed="updatesChanged"
+      ></router-view>
     </v-content>
 
     <v-snackbar v-model="$notify.show" :color="$notify.color">
@@ -205,11 +208,19 @@ export default class App extends Vue {
     return this.connectivity !== "full";
   }
 
-  created() {
+  async created() {
     this.connectivityInterval = setInterval(async () => {
       this.connectivity = await readConnectivity();
-      this.updatesAvailable = await readUpdates();
     }, 10000);
+    try {
+      this.updatesAvailable = await readUpdates();
+    } catch (err) {
+      console.error(err);
+      this.$notify.send({
+        color: "warning",
+        text: "Could not read update status"
+      });
+    }
   }
 
   beforeDestroy() {
@@ -268,6 +279,10 @@ export default class App extends Vue {
       text: "Powering off …"
     });
     poweroff();
+  }
+
+  updatesChanged(updatesAvailable) {
+    this.updatesAvailable = updatesAvailable;
   }
 
   async upgrade() {
