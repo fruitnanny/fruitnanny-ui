@@ -122,12 +122,14 @@ export function makeServer(): Server {
           return {
             "fruitnanny-api": "recent",
             "fruitnanny-ui": "available",
+            wpasupplicant: "available",
             rws: "recent"
           };
         } else {
           return {
             "fruitnanny-api": "recent",
             "fruitnanny-ui": "recent",
+            wpasupplicant: "recent",
             rws: "recent"
           };
         }

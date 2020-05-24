@@ -45,12 +45,7 @@ export function reboot(): Promise<void> {
 }
 
 type UpdateStatus = "recent" | "available";
-
-interface UpdateResponse {
-  "fruitnanny-api": UpdateStatus;
-  "fruitnanny-ui": UpdateStatus;
-  rws: UpdateStatus;
-}
+type UpdateResponse = { [key: string]: UpdateStatus };
 
 async function _readUpdates(url: string): Promise<boolean> {
   let response = await fetch(url);
@@ -58,11 +53,8 @@ async function _readUpdates(url: string): Promise<boolean> {
     throw HTTPError.fromResponse(response);
   }
   let status: UpdateResponse = await response.json();
-  return (
-    status["fruitnanny-ui"] === "available" ||
-    status["fruitnanny-api"] === "available" ||
-    status.rws === "available"
-  );
+
+  return Object.values(status).some(value => value === "available");
 }
 
 export async function readUpdates(download = false): Promise<boolean> {
