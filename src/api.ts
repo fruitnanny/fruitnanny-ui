@@ -448,7 +448,7 @@ export async function withCheckpoint(
 
   // Do not wait for the action because the connection could be disrupted by
   // it.
-  action();
+  action().catch(err => console.error(err));
 
   // Changes in network configuration will most likly change the IP address.
   if (connectedViaIpAddress()) {

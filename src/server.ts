@@ -54,10 +54,46 @@ export function makeServer(): Server {
         return { version: "20.05.7" };
       });
 
+      let activeConnection: string = "hotspot";
+      // let activeConnection: string = "wifi";
+      // let activeConnection: string = "disconnected";
       this.get("/active-connection", schema => {
-        // return schema.db.hotspots.firstOrCreate({});
-        return schema.db.connections.firstOrCreate({});
-        // return new Response(404, undefined, "Not connected");
+        switch (activeConnection) {
+          case "hotspot":
+            return schema.db.hotspots.firstOrCreate({});
+          case "wifi":
+            return schema.db.connections.firstOrCreate({});
+          case "disconnected":
+            return new Response(404, undefined, "Not connected");
+          default:
+            return schema.db.connections.find(activeConnection);
+        }
+      });
+      this.put("/active-connection", (schema, request) => {
+        let attrs = JSON.parse(request.requestBody);
+        if (attrs.type === "hotspot") {
+          activeConnection = "hotspot";
+          return schema.db.hotspots.firstOrCreate({});
+        } else {
+          activeConnection = "wifi";
+          return schema.db.connections.findBy({ id: attrs.id });
+        }
+      });
+      this.post("/active-connection", (schema, request) => {
+        let attrs = JSON.parse(request.requestBody);
+        let connection = schema.db.connections.insert({
+          id: faker.random.uuid(),
+          ssid: attrs.ssid,
+          name: attrs.ssid,
+          priority: 0,
+          autoconnect: true
+        });
+        activeConnection = connection.id;
+        return connection;
+      });
+      this.delete("/active-connection", () => {
+        activeConnection = "disconnected";
+        return new Response(200);
       });
 
       this.get("/connections", schema => {

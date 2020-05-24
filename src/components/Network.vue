@@ -76,8 +76,21 @@ export default class NetworkSettings extends Vue {
   }
 
   async reload(resolve: () => void) {
-    this.activeConnection = await readActiveConnection();
-    resolve();
+    try {
+      this.activeConnection = await readActiveConnection();
+      resolve();
+    } catch (err) {
+      if (err instanceof HTTPError && err.status === 404) {
+        this.activeConnection = null;
+        resolve();
+      } else {
+        console.error(err);
+        this.$notify.send({
+          color: "error",
+          text: "Failed to fetch network connection"
+        });
+      }
+    }
   }
 
   async resolve(error: ResolveError, resolve: () => void) {
