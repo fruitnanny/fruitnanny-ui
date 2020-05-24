@@ -50,6 +50,10 @@ export function makeServer(): Server {
     routes() {
       this.namespace = "api";
 
+      this.get("/", () => {
+        return { version: "20.05.7" };
+      });
+
       this.get("/active-connection", schema => {
         // return schema.db.hotspots.firstOrCreate({});
         return schema.db.connections.firstOrCreate({});
@@ -136,19 +140,41 @@ export function makeServer(): Server {
         }
       });
 
-      let checkpoint = false;
+      let checkpoint: any = null;
+      // const now = new Date();
+      // const created = new Date(now.getTime() - 25 * 1000);
+      // let checkpoint: any = {
+      //   id: 26,
+      //   created: created.toISOString(),
+      //   rollbackTimeout: 60
+      // };
       this.get("/checkpoint", () => {
-        checkpoint = !checkpoint;
-        if (checkpoint) {
+        if (!checkpoint) {
           return new Response(410);
         } else {
+          return checkpoint;
+        }
+      });
+      this.put("/checkpoint", (schema, request) => {
+        if (checkpoint) {
+          return new Response(409);
+        } else {
+          let attrs = JSON.parse(request.requestBody);
           const now = new Date();
-          const created = new Date(now.getTime() - 25 * 1000);
-          return {
+          checkpoint = {
             id: 26,
-            created: created.toISOString(),
-            rollbackTimeout: 30
+            created: now.toISOString(),
+            rollbackTimeout: attrs.rollbackTimeout
           };
+          return checkpoint;
+        }
+      });
+      this.delete("/checkpoint", () => {
+        if (!checkpoint) {
+          return new Response(410);
+        } else {
+          checkpoint = null;
+          return new Response(200);
         }
       });
     },

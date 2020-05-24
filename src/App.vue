@@ -120,6 +120,7 @@
         :updates-available="updatesAvailable"
         @updates-changed="updatesChanged"
         @check-checkpoint="handleCheckCheckpoint"
+        @resolve-error="handleResolveError"
       ></router-view>
     </v-content>
 
@@ -153,16 +154,13 @@
             text
             @click="rollbackCheckpoint"
           >
-            Rollback in {{ rollbackTimeout }}
+            Rollback in {{ rollbackIn }}
             <v-progress-linear
-              v-if="checkpoint"
               color="primary"
               class="rollback-timer"
               absolute
               bottom
-              :value="
-                100 - (rollbackTimeout / checkpoint.rollbackTimeout) * 100
-              "
+              :value="100 - (rollbackIn / rollbackTimeout) * 100"
             >
             </v-progress-linear>
           </v-btn>
@@ -180,6 +178,39 @@
             class="rollback-progress"
             v-if="deletingCheckpoint"
           ></v-progress-circular>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog :value="showResolveErrorDialog" persistent max-width="600px">
+      <v-card>
+        <v-card-title class="headline">
+          Network configuration changed
+        </v-card-title>
+
+        <v-card-text>
+          The network configuration was changed but the new network address
+          could not be resolved. Please connect manually to the new address.
+        </v-card-text>
+
+        <v-card-text>
+          The network configuration will automatically reset in
+          <strong>{{ rollbackIn }} seconds</strong>.
+        </v-card-text>
+
+        <v-card-text>
+          <v-progress-linear
+            color="primary"
+            :value="100 - (rollbackIn / rollbackTimeout) * 100"
+          >
+          </v-progress-linear>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="accent" text @click="reloadPage">
+            Reload Page
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -252,6 +283,7 @@ import {
   readConnectivity,
   readUpdates,
   Checkpoint,
+  ResolveError,
   readCheckpoint,
   deleteCheckpoint,
   upgrade
@@ -275,9 +307,14 @@ export default class App extends Vue {
   upgrading = false;
 
   checkpoint: Checkpoint | null = null;
+
   rollbackTimeout = 0;
+  rollbackIn = 0;
   rollbackTimeoutTimer = -1;
   deletingCheckpoint = false;
+
+  resolveError: ResolveError | null = null;
+  resolveErrorCallback: (() => void) | null = null;
 
   get noConnectivity() {
     return this.connectivity !== "full";
@@ -312,6 +349,10 @@ export default class App extends Vue {
     return "blue";
   }
 
+  get showResolveErrorDialog(): boolean {
+    return this.resolveError !== null;
+  }
+
   toggleDarkMode(state: boolean) {
     putDarkMode(state);
   }
@@ -337,10 +378,10 @@ export default class App extends Vue {
     reboot();
     await sleep(10000);
 
-    let response = null;
-    while (!response) {
+    let healthy = false;
+    while (!healthy) {
       try {
-        response = await probeHealthStatus();
+        healthy = await probeHealthStatus();
       } catch (err) {
         console.error(err);
         await sleep(2000);
@@ -405,30 +446,33 @@ export default class App extends Vue {
         });
       }
     }
-
     if (this.checkpoint) {
-      this.rollbackTimeoutTimer = setInterval(async () => {
-        if (!this.checkpoint) {
-          return;
-        }
-        const now = new Date();
-        const diff =
-          (this.checkpoint.rollbackAt.getTime() - now.getTime()) / 1000;
-        this.rollbackTimeout = Math.max(Math.floor(diff), 0);
-
-        if (this.rollbackTimeout == 0) {
-          clearInterval(this.rollbackTimeoutTimer);
-          this.rollbackTimeoutTimer = -1;
-
-          this.deletingCheckpoint = true;
-          await this.waitForRollback();
-          this.deletingCheckpoint = false;
-        }
-      });
+      this.setupRollbackTimer(this.checkpoint);
     } else {
       clearInterval(this.rollbackTimeoutTimer);
       this.rollbackTimeoutTimer = -1;
     }
+  }
+
+  setupRollbackTimer(checkpoint: Checkpoint) {
+    clearInterval(this.rollbackTimeoutTimer);
+
+    this.rollbackTimeout = checkpoint.rollbackTimeout;
+    this.rollbackTimeoutTimer = setInterval(async () => {
+      const now = new Date();
+      const diff = (checkpoint.rollbackAt.getTime() - now.getTime()) / 1000;
+      this.rollbackIn = Math.max(Math.floor(diff), 0);
+
+      if (this.rollbackIn == 0) {
+        clearInterval(this.rollbackTimeoutTimer);
+        this.rollbackTimeoutTimer = -1;
+
+        this.deletingCheckpoint = true;
+        await this.waitForRollback();
+        this.deletingCheckpoint = false;
+        this.clearCheckpoint();
+      }
+    });
   }
 
   async deleteCheckpoint() {
@@ -443,6 +487,7 @@ export default class App extends Vue {
         },
         5000
       );
+      this.clearCheckpoint();
     } catch (err) {
       console.error(err);
       this.$notify.send({
@@ -465,6 +510,8 @@ export default class App extends Vue {
       // Wait until connectivity is established again.
       await sleep(3000);
       await this.waitForRollback();
+
+      this.clearCheckpoint();
     } catch (err) {
       console.error(err);
       this.$notify.send({
@@ -477,15 +524,37 @@ export default class App extends Vue {
   }
 
   async waitForRollback() {
-    let response = null;
-    while (!response) {
+    let healthy = false;
+    while (!healthy) {
       try {
-        response = await probeHealthStatus();
+        healthy = await probeHealthStatus();
       } catch (err) {
         console.error(err);
         await sleep(1000);
       }
     }
+  }
+
+  clearCheckpoint() {
+    clearInterval(this.rollbackTimeoutTimer);
+    this.checkpoint = null;
+
+    this.resolveError = null;
+    if (this.resolveErrorCallback) {
+      let callback = this.resolveErrorCallback;
+      this.resolveErrorCallback = null;
+      callback();
+    }
+  }
+
+  async handleResolveError(error: ResolveError, callback: () => void) {
+    this.resolveError = error;
+    this.resolveErrorCallback = callback;
+    this.setupRollbackTimer(error.checkpoint);
+  }
+
+  reloadPage() {
+    document.location.reload();
   }
 }
 </script>

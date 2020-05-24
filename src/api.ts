@@ -1,3 +1,5 @@
+import { connectedViaIpAddress } from "./probe";
+
 export function urlFor(path: string): string {
   return `${document.location.origin}${path}`;
 }
@@ -22,6 +24,24 @@ export class HTTPError extends Error {
 
 export function signalingUrl(): string {
   return `ws://${document.location.hostname}:8889/rws/ws`;
+}
+
+export interface IndexResponse {
+  version: string;
+}
+
+export async function readVersion(timeout?: number): Promise<string> {
+  let signal: AbortSignal | undefined = undefined;
+
+  if (timeout === undefined) {
+    const controller = new AbortController();
+    signal = controller.signal;
+    setTimeout(() => controller.abort(), timeout);
+  }
+
+  let response = await fetch(urlFor("/api/"), { signal });
+  let data: IndexResponse = await response.json();
+  return data.version;
 }
 
 export function poweroff(): Promise<void> {
@@ -229,22 +249,22 @@ export interface CheckpointCreateOptions {
   overwrite?: boolean;
 }
 
-export function createCheckpoint(
+export async function createCheckpoint(
   options?: CheckpointCreateOptions
 ): Promise<Checkpoint> {
   let body = undefined;
   if (options) {
     body = JSON.stringify(options);
   }
-  return fetch(urlFor("/api/checkpoint"), {
+  let response = await fetch(urlFor("/api/checkpoint"), {
     method: "PUT",
     body: body
-  }).then((response: Response) => {
-    if (!response.ok) {
-      throw HTTPError.fromResponse(response);
-    }
-    return response.json() as Promise<Checkpoint>;
   });
+  if (!response.ok) {
+    throw HTTPError.fromResponse(response);
+  }
+  let checkpointResponse: CheckpointResponse = await response.json();
+  return Checkpoint.fromResponse(checkpointResponse);
 }
 
 export async function readCheckpoint(): Promise<Checkpoint> {
@@ -282,7 +302,7 @@ export function deleteCheckpoint(
   }).then((response: Response) => {
     // HTTP 410 Gone is acceptable. It means the checkpoint was already
     // deleted.
-    if (response.status == 410 && !response.ok) {
+    if (response.status != 410 && !response.ok) {
       throw HTTPError.fromResponse(response);
     }
   });
@@ -402,6 +422,16 @@ export function listAccessPoints(): Promise<AccessPoint[]> {
   });
 }
 
+export class ResolveError extends Error {
+  readonly name: string = "Resolve";
+  readonly checkpoint: Checkpoint;
+
+  constructor(message: string, checkpoint: Checkpoint) {
+    super(message);
+    this.checkpoint = checkpoint;
+  }
+}
+
 /**
  * @param timeout  Rollback timeout in seconds
  */
@@ -419,6 +449,11 @@ export async function withCheckpoint(
   // Do not wait for the action because the connection could be disrupted by
   // it.
   action();
+
+  // Changes in network configuration will most likly change the IP address.
+  if (connectedViaIpAddress()) {
+    throw new ResolveError("Connected via IP address", checkpoint);
+  }
 
   await new Promise(resolve => setTimeout(resolve, 2000));
 

@@ -161,6 +161,7 @@ import {
   Connection,
   AccessPoint,
   withCheckpoint,
+  ResolveError,
   listConnections,
   listAccessPoints,
   deleteConnection,
@@ -421,11 +422,15 @@ export default class WLAN extends Vue {
       // await new Promise(resolve => setTimeout(resolve, 3000));
       await withCheckpoint(() => activate({ type: "wifi", id: connection.id }));
     } catch (err) {
-      console.error(err);
-      this.$notify.send({
-        color: "error",
-        text: "Failed to activate connection"
-      });
+      if (err instanceof ResolveError) {
+        await new Promise(resolve => this.$emit("resolve-error", err, resolve));
+      } else {
+        console.error(err);
+        this.$notify.send({
+          color: "error",
+          text: "Failed to activate connection"
+        });
+      }
     } finally {
       await this.reloadConnections();
       await new Promise(resolve => this.$emit("reload", resolve));
@@ -442,11 +447,15 @@ export default class WLAN extends Vue {
       // await new Promise(resolve => setTimeout(resolve, 3000));
       await withCheckpoint(() => connect({ ssid, password }));
     } catch (err) {
-      console.error(err);
-      this.$notify.send({
-        color: "error",
-        text: "Failed to connect"
-      });
+      if (err instanceof ResolveError) {
+        await new Promise(resolve => this.$emit("resolve-error", err, resolve));
+      } else {
+        console.error(err);
+        this.$notify.send({
+          color: "error",
+          text: "Failed to connect"
+        });
+      }
     } finally {
       await this.reloadConnections();
       await new Promise(resolve => this.$emit("reload", resolve));

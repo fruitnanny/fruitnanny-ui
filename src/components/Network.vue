@@ -3,9 +3,6 @@
     <div class="text-center pa-4" v-if="loading">
       <v-progress-circular indeterminate color="primary"></v-progress-circular>
     </div>
-    <div class="pa-4" v-else-if="error">
-      <v-alert type="error">{{ error }}</v-alert>
-    </div>
     <v-card v-else flat>
       <v-tabs v-model="activeTab">
         <v-tab><v-icon left>mdi-wifi</v-icon>WLAN</v-tab>
@@ -14,13 +11,18 @@
         <v-tab-item>
           <WLAN
             @reload="reload"
+            @resolve-error="resolve"
             :active="activeConnection"
             :visible="activeTab == 0"
           ></WLAN>
         </v-tab-item>
 
         <v-tab-item>
-          <Hotspot :active="activeConnection" @reload="reload"></Hotspot>
+          <Hotspot
+            :active="activeConnection"
+            @reload="reload"
+            @resolve-error="resolve"
+          ></Hotspot>
         </v-tab-item>
       </v-tabs>
     </v-card>
@@ -30,7 +32,12 @@
 <script lang="ts">
 import Vue from "vue";
 import Component from "vue-class-component";
-import { Connection, readActiveConnection, HTTPError } from "../api";
+import {
+  Connection,
+  readActiveConnection,
+  HTTPError,
+  ResolveError
+} from "../api";
 import WLAN from "./WLAN.vue";
 import Hotspot from "./Hotspot.vue";
 
@@ -43,7 +50,6 @@ import Hotspot from "./Hotspot.vue";
 export default class NetworkSettings extends Vue {
   activeTab: number = 0;
   loading: boolean = false;
-  error: string | null = null;
 
   activeConnection: Connection | null = null;
 
@@ -71,6 +77,13 @@ export default class NetworkSettings extends Vue {
 
   async reload(resolve: () => void) {
     this.activeConnection = await readActiveConnection();
+    resolve();
+  }
+
+  async resolve(error: ResolveError, resolve: () => void) {
+    await new Promise<void>(_resolve =>
+      this.$emit("resolve-error", error, _resolve)
+    );
     resolve();
   }
 }

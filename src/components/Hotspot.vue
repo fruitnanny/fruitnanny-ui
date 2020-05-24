@@ -55,7 +55,8 @@ import {
   updateHotspot,
   activate,
   disconnect,
-  withCheckpoint
+  withCheckpoint,
+  ResolveError
 } from "../api";
 import copy from "../copy";
 
@@ -125,11 +126,15 @@ export default class HotspotSettings extends Vue {
       await withCheckpoint(() => activate({ type: "hotspot" }));
       // await new Promise(resolve => setTimeout(resolve, 3000));
     } catch (err) {
-      console.error(err);
-      this.$notify.send({
-        color: "error",
-        text: "Failed to enable hotspot"
-      });
+      if (err instanceof ResolveError) {
+        await new Promise(resolve => this.$emit("resolve-error", err, resolve));
+      } else {
+        console.error(err);
+        this.$notify.send({
+          color: "error",
+          text: "Failed to enable hotspot"
+        });
+      }
     } finally {
       let wait = new Promise<void>(resolve => this.$emit("reload", resolve));
       await wait;
