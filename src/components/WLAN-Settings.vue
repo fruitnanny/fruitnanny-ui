@@ -5,7 +5,7 @@
       <v-spacer></v-spacer>
       <v-progress-circular
         indeterminate
-        color="primary"
+        color="accent"
         v-if="disabled"
       ></v-progress-circular>
     </v-card-title>

@@ -147,7 +147,7 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn
-            color="accent"
+            color="primary"
             v-if="!deletingCheckpoint"
             text
             @click="rollbackCheckpoint"
@@ -155,7 +155,7 @@
             Rollback in {{ rollbackTimeout }}
             <v-progress-linear
               v-if="checkpoint"
-              color="accent"
+              color="primary"
               class="rollback-timer"
               absolute
               bottom
@@ -166,7 +166,7 @@
             </v-progress-linear>
           </v-btn>
           <v-btn
-            color="primary"
+            color="accent"
             v-if="!deletingCheckpoint"
             text
             @click="deleteCheckpoint"
@@ -175,7 +175,7 @@
           </v-btn>
           <v-progress-circular
             indeterminate
-            color="primary"
+            color="accent"
             class="rollback-progress"
             v-if="deletingCheckpoint"
           ></v-progress-circular>

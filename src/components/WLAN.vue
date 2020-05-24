@@ -16,7 +16,7 @@
           color="primary"
           v-if="isActivating(network.connection)"
         ></v-progress-circular>
-        <v-icon color="primary" v-else-if="isActive(network.connection)"
+        <v-icon color="accent" v-else-if="isActive(network.connection)"
           >mdi-check</v-icon
         >
       </v-list-item-avatar>
@@ -38,7 +38,7 @@
       </v-list-item-action>
 
       <v-list-item-action @click.stop="edit(network.connection)">
-        <v-btn icon color="accent">
+        <v-btn icon color="primary">
           <v-icon>mdi-pencil</v-icon>
         </v-btn>
       </v-list-item-action>
@@ -67,7 +67,7 @@
       <v-list-item-avatar>
         <v-progress-circular
           indeterminate
-          color="primary"
+          color="accent"
           v-if="isConnecting(accessPoint)"
         ></v-progress-circular>
       </v-list-item-avatar>

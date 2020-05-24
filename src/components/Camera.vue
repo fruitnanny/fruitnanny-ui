@@ -116,7 +116,7 @@
 
     <v-row justify="center" class="text-center">
       <v-col xs="12" md="8" lg="6">
-        <v-btn v-if="muted" class="mx-2" color="primary" fab @click="unmute">
+        <v-btn v-if="muted" class="mx-2" color="accent" fab @click="unmute">
           <v-icon>mdi-volume-off</v-icon>
         </v-btn>
         <v-btn v-else class="mx-2" fab @click="mute">
@@ -128,7 +128,7 @@
           class="mx-2"
           fab
           x-large
-          color="primary"
+          color="accent"
           @click="disconnect"
         >
           <v-icon>mdi-stop</v-icon>
@@ -144,7 +144,7 @@
           <v-icon>mdi-play</v-icon>
         </v-btn>
 
-        <v-btn v-if="light" color="primary" class="mx-2" fab @click="lightOff">
+        <v-btn v-if="light" color="accent" class="mx-2" fab @click="lightOff">
           <v-icon>mdi-flashlight-off</v-icon>
         </v-btn>
         <v-btn v-else class="mx-2" fab @click="lightOn">
@@ -174,7 +174,7 @@
         ></v-switch>
         <!-- <v-switch
           v-model="sensorOverlay"
-          color="primary"
+          color="accent"
           label="Sensor overlay"
         ></v-switch> -->
       </v-col>

@@ -9,9 +9,9 @@ export default new Vuetify({
     dark: readDarkMode(),
     themes: {
       light: {
-        primary: "#ee44aa",
+        primary: "#82B1FF",
         secondary: "#424242",
-        accent: "#82B1FF",
+        accent: "#EE44AA",
         error: "#FF5252",
         info: "#2196F3",
         success: "#4CAF50",
