@@ -181,15 +181,36 @@ export function updateConnection(connection: Connection): Promise<Connection> {
     body: JSON.stringify(connection)
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Connection>;
   });
 }
 
-interface Checkpoint {
+export class Checkpoint {
+  readonly id: number;
+  readonly created: Date;
+  readonly rollbackTimeout: number;
+  readonly rollbackAt: Date;
+
+  constructor(id: number, created: Date, rollbackTimeout: number) {
+    this.id = id;
+    this.created = created;
+    this.rollbackTimeout = rollbackTimeout;
+    this.rollbackAt = new Date(
+      this.created.getTime() + this.rollbackTimeout * 1000
+    );
+  }
+
+  static fromResponse(response: CheckpointResponse): Checkpoint {
+    const created = new Date(response.created);
+    return new Checkpoint(response.id, created, response.rollbackTimeout);
+  }
+}
+
+interface CheckpointResponse {
   id: number;
-  created: number;
+  created: string;
   rollbackTimeout: number;
 }
 
@@ -216,13 +237,12 @@ export function createCheckpoint(
   });
 }
 
-export function readCheckpoint(): Promise<Checkpoint> {
-  return fetch(urlFor("/api/checkpoint")).then((response: Response) => {
-    if (!response.ok) {
-      throw new Error(response.statusText);
-    }
-    return response.json() as Promise<Checkpoint>;
-  });
+export async function readCheckpoint(): Promise<Checkpoint> {
+  const response = await fetch(urlFor("/api/checkpoint"));
+  if (!response.ok) {
+    throw HTTPError.fromResponse(response);
+  }
+  return Checkpoint.fromResponse(await response.json());
 }
 
 export interface CheckpointDeleteOptions {
