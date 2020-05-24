@@ -119,6 +119,7 @@
       <router-view
         :updates-available="updatesAvailable"
         @updates-changed="updatesChanged"
+        @check-checkpoint="handleCheckCheckpoint"
       ></router-view>
     </v-content>
 
@@ -377,6 +378,18 @@ export default class App extends Vue {
       });
     } finally {
       this.upgrading = false;
+    }
+  }
+
+  async handleCheckCheckpoint(
+    resolve: () => void,
+    reject: (reason: any) => void
+  ) {
+    try {
+      await this.checkCheckpoint();
+      resolve();
+    } catch (err) {
+      reject(err);
     }
   }
 

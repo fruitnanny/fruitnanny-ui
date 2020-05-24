@@ -135,7 +135,8 @@ export function makeServer(): Server {
 
       let checkpoint = false;
       this.get("/checkpoint", () => {
-        if (!checkpoint) {
+        checkpoint = !checkpoint;
+        if (checkpoint) {
           return new Response(410);
         } else {
           const now = new Date();

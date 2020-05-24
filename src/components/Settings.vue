@@ -59,8 +59,27 @@
                     class="mr-1"
                   >
                   </v-progress-circular>
-                  <v-icon left v-else>mdi-sync</v-icon>
+                  <v-icon left v-else>mdi-download</v-icon>
                   Check for Updates
+                </v-btn>
+              </v-col>
+            </v-row>
+            <v-row>
+              <v-col>
+                <v-btn
+                  :disabled="checkingForCheckpoint"
+                  @click="checkForCheckpoint"
+                >
+                  <v-progress-circular
+                    v-if="checkingForCheckpoint"
+                    indeterminate
+                    size="18"
+                    width="2"
+                    class="mr-1"
+                  >
+                  </v-progress-circular>
+                  <v-icon left v-else>mdi-wifi</v-icon>
+                  Check for network changes
                 </v-btn>
               </v-col>
             </v-row>
@@ -91,6 +110,7 @@ export default class Settings extends Vue {
   saving: boolean = false;
   activeTab: number = 0;
   checkingForUpdates: boolean = false;
+  checkingForCheckpoint: boolean = false;
 
   temperatureOffset: string = "0";
   humidityOffset: string = "0";
@@ -175,6 +195,27 @@ export default class Settings extends Vue {
       });
     } finally {
       this.checkingForUpdates = false;
+    }
+  }
+
+  async checkForCheckpoint() {
+    if (this.checkingForCheckpoint) {
+      return;
+    }
+    try {
+      this.checkingForCheckpoint = true;
+      let wait = new Promise<void>((resolve, reject) => {
+        this.$emit("check-checkpoint", resolve, reject);
+      });
+      await wait;
+    } catch (err) {
+      console.error(err);
+      this.$notify.send({
+        color: "error",
+        text: "Failed to check for network changes"
+      });
+    } finally {
+      this.checkingForCheckpoint = false;
     }
   }
 }
