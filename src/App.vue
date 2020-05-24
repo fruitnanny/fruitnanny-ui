@@ -129,6 +129,60 @@
       </v-btn>
     </v-snackbar>
 
+    <v-dialog :value="checkpoint" persistent max-width="600px">
+      <v-card>
+        <v-card-title class="headline">
+          New network detected
+        </v-card-title>
+
+        <v-card-subtitle>
+          Confirmation
+        </v-card-subtitle>
+
+        <v-card-text>
+          FruitNanny detected a change in its network configuration. Do you want
+          to keep the changes?
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="accent"
+            v-if="!deletingCheckpoint"
+            text
+            @click="rollbackCheckpoint"
+          >
+            Rollback in {{ rollbackTimeout }}
+            <v-progress-linear
+              v-if="checkpoint"
+              color="accent"
+              class="rollback-timer"
+              absolute
+              bottom
+              :value="
+                100 - (rollbackTimeout / checkpoint.rollbackTimeout) * 100
+              "
+            >
+            </v-progress-linear>
+          </v-btn>
+          <v-btn
+            color="primary"
+            v-if="!deletingCheckpoint"
+            text
+            @click="deleteCheckpoint"
+          >
+            Keep
+          </v-btn>
+          <v-progress-circular
+            indeterminate
+            color="primary"
+            class="rollback-progress"
+            v-if="deletingCheckpoint"
+          ></v-progress-circular>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-bottom-sheet v-model="powerSheet">
       <v-sheet class="text-center">
         <v-container class="fill-height">
@@ -173,17 +227,32 @@
 .v-toolbar .v-input.night-mode {
   margin-top: 28px;
 }
+
+/* Add a little bit vertical space between button text and progress bar. */
+.rollback-timer {
+  bottom: -4px !important; /* "!important" because of inline styling. */
+}
+
+/* Add a little bottom margin to account for the extra vertical space of
+ * rollback timer. */
+.rollback-progress {
+  margin-bottom: 4px;
+}
 </style>
 
-<script language="ts">
+<script lang="ts">
 import Vue from "vue";
 import Component from "vue-class-component";
 import { probeHealthStatus, sleep } from "./probe";
 import {
+  HTTPError,
   reboot,
   poweroff,
   readConnectivity,
   readUpdates,
+  Checkpoint,
+  readCheckpoint,
+  deleteCheckpoint,
   upgrade
 } from "./api";
 import { putDarkMode } from "./settings";
@@ -195,7 +264,7 @@ import { putDarkMode } from "./settings";
 })
 export default class App extends Vue {
   dialog = false;
-  drawer = null;
+  drawer: boolean | null = null;
   powerSheet = false;
   restartSheet = false;
 
@@ -203,6 +272,11 @@ export default class App extends Vue {
   connectivity = "full";
   updatesAvailable = false;
   upgrading = false;
+
+  checkpoint: Checkpoint | null = null;
+  rollbackTimeout = 0;
+  rollbackTimeoutTimer = -1;
+  deletingCheckpoint = false;
 
   get noConnectivity() {
     return this.connectivity !== "full";
@@ -212,6 +286,9 @@ export default class App extends Vue {
     this.connectivityInterval = setInterval(async () => {
       this.connectivity = await readConnectivity();
     }, 10000);
+
+    this.checkCheckpoint();
+
     try {
       this.updatesAvailable = await readUpdates();
     } catch (err) {
@@ -234,7 +311,7 @@ export default class App extends Vue {
     return "blue";
   }
 
-  toggleDarkMode(state) {
+  toggleDarkMode(state: boolean) {
     putDarkMode(state);
   }
 
@@ -281,7 +358,7 @@ export default class App extends Vue {
     poweroff();
   }
 
-  updatesChanged(updatesAvailable) {
+  updatesChanged(updatesAvailable: boolean) {
     this.updatesAvailable = updatesAvailable;
   }
 
@@ -300,6 +377,101 @@ export default class App extends Vue {
       });
     } finally {
       this.upgrading = false;
+    }
+  }
+
+  async checkCheckpoint() {
+    try {
+      this.checkpoint = await readCheckpoint();
+    } catch (err) {
+      if (err instanceof HTTPError === false || err.status != 410) {
+        console.error(err);
+        this.$notify.send({
+          color: "warning",
+          text: "Could not check for network changes"
+        });
+      }
+    }
+
+    if (this.checkpoint) {
+      this.rollbackTimeoutTimer = setInterval(async () => {
+        if (!this.checkpoint) {
+          return;
+        }
+        const now = new Date();
+        const diff =
+          (this.checkpoint.rollbackAt.getTime() - now.getTime()) / 1000;
+        this.rollbackTimeout = Math.max(Math.floor(diff), 0);
+
+        if (this.rollbackTimeout == 0) {
+          clearInterval(this.rollbackTimeoutTimer);
+          this.rollbackTimeoutTimer = -1;
+
+          this.deletingCheckpoint = true;
+          await this.waitForRollback();
+          this.deletingCheckpoint = false;
+        }
+      });
+    } else {
+      clearInterval(this.rollbackTimeoutTimer);
+      this.rollbackTimeoutTimer = -1;
+    }
+  }
+
+  async deleteCheckpoint() {
+    if (this.deletingCheckpoint) {
+      return;
+    }
+    this.deletingCheckpoint = true;
+    try {
+      await await deleteCheckpoint(
+        {
+          mode: "destroy"
+        },
+        5000
+      );
+    } catch (err) {
+      console.error(err);
+      this.$notify.send({
+        color: "error",
+        text: "Failed to Could not delete network checkpoint"
+      });
+    } finally {
+      this.deletingCheckpoint = false;
+    }
+  }
+
+  async rollbackCheckpoint() {
+    if (this.deletingCheckpoint) {
+      return;
+    }
+    this.deletingCheckpoint = true;
+    try {
+      deleteCheckpoint({ mode: "rollback" });
+
+      // Wait until connectivity is established again.
+      await sleep(3000);
+      await this.waitForRollback();
+    } catch (err) {
+      console.error(err);
+      this.$notify.send({
+        color: "error",
+        text: "Failed to rollback network checkpoint"
+      });
+    } finally {
+      this.deletingCheckpoint = false;
+    }
+  }
+
+  async waitForRollback() {
+    let response = null;
+    while (!response) {
+      try {
+        response = await probeHealthStatus();
+      } catch (err) {
+        console.error(err);
+        await sleep(1000);
+      }
     }
   }
 }

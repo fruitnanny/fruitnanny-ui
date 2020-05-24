@@ -2,6 +2,24 @@ export function urlFor(path: string): string {
   return `${document.location.origin}${path}`;
 }
 
+export class HTTPError extends Error {
+  readonly status: number;
+  readonly name: string = "HTTPError";
+
+  constructor(status: number, text: string) {
+    super(text);
+    this.status = status;
+  }
+
+  toString() {
+    return `HTTP ${this.status}: ${this.message}`;
+  }
+
+  static fromResponse(response: Response) {
+    return new HTTPError(response.status, response.statusText);
+  }
+}
+
 export function signalingUrl(): string {
   return `ws://${document.location.hostname}:8889/rws/ws`;
 }
@@ -11,7 +29,7 @@ export function poweroff(): Promise<void> {
     method: "POST"
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
   });
 }
@@ -21,7 +39,7 @@ export function reboot(): Promise<void> {
     method: "POST"
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
   });
 }
@@ -37,7 +55,7 @@ interface UpdateResponse {
 async function _readUpdates(url: string): Promise<boolean> {
   let response = await fetch(url);
   if (!response.ok) {
-    throw new Error(response.statusText);
+    throw HTTPError.fromResponse(response);
   }
   let status: UpdateResponse = await response.json();
   return (
@@ -60,7 +78,7 @@ export async function upgrade(): Promise<void> {
     method: "PUT"
   });
   if (!response.ok) {
-    throw new Error(response.statusText);
+    throw HTTPError.fromResponse(response);
   }
 }
 
@@ -72,7 +90,7 @@ export function readConnectivity(): Promise<string> {
   return fetch(urlFor("/api/connectivity"))
     .then((response: Response) => {
       if (!response.ok) {
-        throw new Error(response.statusText);
+        throw HTTPError.fromResponse(response);
       }
       return response.json() as Promise<connectivity>;
     })
@@ -89,7 +107,7 @@ export function getLight(): Promise<boolean> {
   return fetch(urlFor("/api/light"))
     .then((response: Response) => {
       if (!response.ok) {
-        throw new Error(response.statusText);
+        throw HTTPError.fromResponse(response);
       }
       return response.json();
     })
@@ -111,7 +129,7 @@ export function updateLight(state: boolean): Promise<boolean> {
   })
     .then((response: Response) => {
       if (!response.ok) {
-        throw new Error(response.statusText);
+        throw HTTPError.fromResponse(response);
       }
       return response.json();
     })
@@ -128,7 +146,7 @@ export interface SensorData {
 export function readSensors(): Promise<SensorData> {
   return fetch(urlFor("/api/sensors")).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json();
   });
@@ -146,7 +164,7 @@ export interface Connection {
 export function listConnections(): Promise<Connection[]> {
   return fetch(urlFor("/api/connections")).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Connection[]>;
   });
@@ -155,7 +173,7 @@ export function listConnections(): Promise<Connection[]> {
 export function readConnection(id: string): Promise<Connection> {
   return fetch(urlFor(`/api/connections/${id}`)).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Connection>;
   });
@@ -166,7 +184,7 @@ export function deleteConnection(id: string): Promise<void> {
     method: "DELETE"
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
   });
 }
@@ -231,7 +249,7 @@ export function createCheckpoint(
     body: body
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Checkpoint>;
   });
@@ -273,7 +291,7 @@ export function deleteCheckpoint(
     // HTTP 410 Gone is acceptable. It means the checkpoint was already
     // deleted.
     if (response.status == 410 && !response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
   });
 }
@@ -281,7 +299,7 @@ export function deleteCheckpoint(
 export function readActiveConnection(): Promise<Connection> {
   return fetch(urlFor("/api/active-connection")).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Connection>;
   });
@@ -308,7 +326,7 @@ export function activate(options: ActivateOptions): Promise<Connection> {
     body: JSON.stringify(options)
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Connection>;
   });
@@ -329,7 +347,7 @@ export function connect(options: ConnectOptions): Promise<Connection> {
     body: JSON.stringify(options)
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Connection>;
   });
@@ -340,7 +358,7 @@ export function disconnect(): Promise<void> {
     method: "DELETE"
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
   });
 }
@@ -354,7 +372,7 @@ export interface Hotspot {
 export function readHotspot(): Promise<Hotspot> {
   return fetch(urlFor("/api/hotspot")).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Hotspot>;
   });
@@ -370,7 +388,7 @@ export function updateHotspot(hotspot: Hotspot): Promise<Hotspot> {
     body: JSON.stringify(hotspot)
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Hotspot>;
   });
@@ -386,7 +404,7 @@ export interface AccessPoint {
 export function listAccessPoints(): Promise<AccessPoint[]> {
   return fetch(urlFor("/api/access-points")).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<AccessPoint[]>;
   });
@@ -437,7 +455,7 @@ export interface Settings {
 export async function readSettings() {
   return fetch(urlFor("/api/settings")).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Settings>;
   });
@@ -453,7 +471,7 @@ export function updateSettings(settings: Settings): Promise<Settings> {
     body: JSON.stringify(settings)
   }).then((response: Response) => {
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw HTTPError.fromResponse(response);
     }
     return response.json() as Promise<Settings>;
   });

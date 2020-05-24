@@ -1,4 +1,4 @@
-import { Factory, Model, Server, RestSerializer } from "miragejs";
+import { Factory, Model, Server, RestSerializer, Response } from "miragejs";
 import faker from "faker";
 
 export function makeServer(): Server {
@@ -129,6 +129,21 @@ export function makeServer(): Server {
             "fruitnanny-api": "recent",
             "fruitnanny-ui": "recent",
             rws: "recent"
+          };
+        }
+      });
+
+      let checkpoint = false;
+      this.get("/checkpoint", () => {
+        if (!checkpoint) {
+          return new Response(410);
+        } else {
+          const now = new Date();
+          const created = new Date(now.getTime() - 25 * 1000);
+          return {
+            id: 26,
+            created: created.toISOString(),
+            rollbackTimeout: 30
           };
         }
       });
