@@ -30,7 +30,7 @@
 <script lang="ts">
 import Vue from "vue";
 import Component from "vue-class-component";
-import { Connection, readActiveConnection } from "../api";
+import { Connection, readActiveConnection, HTTPError } from "../api";
 import WLAN from "./WLAN.vue";
 import Hotspot from "./Hotspot.vue";
 
@@ -49,7 +49,18 @@ export default class NetworkSettings extends Vue {
 
   async created() {
     this.loading = true;
-    this.activeConnection = await readActiveConnection();
+    try {
+      this.activeConnection = await readActiveConnection();
+    } catch (err) {
+      if (err instanceof HTTPError === false || err.status !== 404) {
+        console.error(err);
+        this.$notify.send({
+          color: "error",
+          text: "Failed to fetch network connection"
+        });
+      }
+      this.activeConnection = null;
+    }
     if (this.activeConnection) {
       if (this.activeConnection.type == "hotspot") {
         this.activeTab = 1;

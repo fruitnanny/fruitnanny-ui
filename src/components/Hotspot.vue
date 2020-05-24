@@ -53,7 +53,6 @@ import {
   Connection,
   readHotspot,
   updateHotspot,
-  readActiveConnection,
   activate,
   disconnect,
   withCheckpoint
@@ -132,7 +131,8 @@ export default class HotspotSettings extends Vue {
         text: "Failed to enable hotspot"
       });
     } finally {
-      this.$emit("reload");
+      let wait = new Promise<void>(resolve => this.$emit("reload", resolve));
+      await wait;
       this.loading = false;
     }
   }

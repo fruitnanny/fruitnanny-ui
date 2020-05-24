@@ -53,6 +53,7 @@ export function makeServer(): Server {
       this.get("/active-connection", schema => {
         // return schema.db.hotspots.firstOrCreate({});
         return schema.db.connections.firstOrCreate({});
+        // return new Response(404, undefined, "Not connected");
       });
 
       this.get("/connections", schema => {
