@@ -120,7 +120,7 @@
           <v-icon>mdi-volume-off</v-icon>
         </v-btn>
         <v-btn v-else class="mx-2" fab @click="mute">
-          <v-icon>mdi-volume-high</v-icon>
+          <v-icon>mdi-volume-off</v-icon>
         </v-btn>
 
         <v-btn
@@ -145,7 +145,7 @@
         </v-btn>
 
         <v-btn v-if="light" color="accent" class="mx-2" fab @click="lightOff">
-          <v-icon>mdi-flashlight-off</v-icon>
+          <v-icon>mdi-flashlight</v-icon>
         </v-btn>
         <v-btn v-else class="mx-2" fab @click="lightOn">
           <v-icon>mdi-flashlight</v-icon>
