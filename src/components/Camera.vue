@@ -333,7 +333,14 @@ export default class Camera extends Vue {
       });
     }
     this.signaling = new SignalingChannel(signalingUrl());
-    this.peerConnection = establishPeerConnection(this.signaling);
+    this.peerConnection = establishPeerConnection(this.signaling, reason => {
+      console.warn(reason);
+      this.disconnect();
+      this.$notify.send({
+        color: "error",
+        text: reason
+      });
+    });
 
     try {
       // No Room concept, random generate room and client id.
@@ -352,6 +359,23 @@ export default class Camera extends Vue {
     }
 
     this.peerConnection.addEventListener("track", ev => {
+      ev.track.addEventListener("ended", () => {
+        if (this.connected) {
+          console.warn("track ended", ev.track);
+          if (ev.track.kind === "video") {
+            this.$notify.send({
+              color: "error",
+              text: "Video codec probably not supported."
+            });
+          } else {
+            this.$notify.send({
+              color: "error",
+              text: "Audio codec probably not supported."
+            });
+          }
+        }
+      });
+
       if (ev.streams.length > 0) {
         this.$refs.video.srcObject = ev.streams[0];
 
@@ -366,39 +390,37 @@ export default class Camera extends Vue {
             });
           }
         }
+        this.$refs.video.play();
+      }
+    });
 
-        // iOS Safari does not automatically start the video
-        if (iOS()) {
-          this.$refs.video.play();
+    this.peerConnection.addEventListener("connectionstatechange", ev => {
+      if (this.peerConnection) {
+        if (this.peerConnection.connectionState === "closed") {
+          this.disconnect();
         }
       }
     });
 
-    if (this.peerConnection.connectionState != undefined) {
-      this.peerConnection.addEventListener("connectionstatechange", ev => {
-        if (this.peerConnection) {
-          if (this.peerConnection.connectionState === "closed") {
-            this.disconnect();
-          }
+    // Browsers that do not supprt the "connectionState" API yet.
+    this.peerConnection.addEventListener("signalingstatechange", ev => {
+      if (this.peerConnection) {
+        if (this.peerConnection.signalingState === "closed") {
+          this.disconnect();
         }
-      });
-    }
-    // Older browsers that do not supprt the "connectionState" API yet.
-    else {
-      this.peerConnection.addEventListener("signalingstatechange", ev => {
-        if (this.peerConnection) {
-          if (this.peerConnection.signalingState === "closed") {
-            this.disconnect();
-          }
-        }
-      });
-    }
+      }
+    });
   }
 
   async disconnect() {
     if (!this.connected) {
       return;
     }
+    // Clear the flag right at the beginning to prevent any handler from
+    // thinking that the stream is still alive and trigger some action because
+    // the connection was lost.
+    this.connected = false;
+
     if (this.volumeMeter) {
       this.volumeMeter.close();
       this.volumeMeter = null;
@@ -411,7 +433,6 @@ export default class Camera extends Vue {
       this.signaling.close();
       this.signaling = null;
     }
-    this.connected = false;
     if (this.$refs.video) {
       this.$refs.video.srcObject = null;
     }

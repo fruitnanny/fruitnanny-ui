@@ -184,3 +184,37 @@ export class SignalingChannel {
     }
   }
 }
+
+/**
+ * Replace any occurance of profile-level-id 0x42001f in the SDP offer.
+ * There might be some Chrome version on Android which do not properly support
+ * the base constraint profile.
+ *
+ * @see https://bugs.chromium.org/p/webrtc/issues/detail?id=8584
+ */
+function removeH264BaseConstraint(sdp: string): string {
+  const profileLevelIdRe = /^a=fmtp:(\d+).*profile-level-id=42001f$/m;
+  let match = sdp.match(profileLevelIdRe);
+
+  while (match) {
+    const codecId = match[1];
+
+    sdp = sdp.replace(
+      new RegExp(`a=(rtpmap|rtcp-fb|fmtp):${codecId}.*\\r?\\n`, "g"),
+      ""
+    );
+    sdp = sdp.replace(
+      new RegExp(`a=fmtp:\\d+.*apt=${codecId}.*\\r?\\n`, "g"),
+      ""
+    );
+
+    match = sdp.match(profileLevelIdRe);
+
+    sdp = sdp.replace(
+      new RegExp(`m=video (.*) ${codecId} (.*)(\\r?\\n)`, "g"),
+      "m=video $1 $2$3"
+    );
+  }
+
+  return sdp;
+}
