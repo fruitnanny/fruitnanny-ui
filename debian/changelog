@@ -1,3 +1,18 @@
+fruitnanny-ui (20.05.4) buster; urgency=medium
+
+  * Handle WebRTC signaling exceptions
+  * Handle HTTP 404 when reloading active connections
+  * Show dialog when chaning network via IP address
+  * Handle "404 Not Connected" when checking for active connection
+  * Allow arbitrary package names in update check.
+  * Add button to check for network changes
+  * Do not change icons on camera buttons
+  * Correctly use Material primary and accent color
+  * Check for network checkpoint on page load
+  * Implement new checkpoint API
+
+ -- Lucas Kahlert <lucas.kahlert@square-src.de>  Wed, 27 May 2020 14:07:57 +0200
+
 fruitnanny-ui (20.05.3) buster; urgency=medium
 
   * Check only once for updates per page load

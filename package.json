@@ -1,6 +1,6 @@
 {
   "name": "fruitnanny",
-  "version": "20.05.3",
+  "version": "20.05.4",
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
